@@ -1,14 +1,26 @@
 export function throttle<R, A extends any[]>(
 	fn: (...args: A) => R,
 	timeFrameMs: number,
-): (...args: A) => R | undefined {
+): (...args: A) => void {
 	let lastTime = 0;
+	let isThrottled = false;
 
 	return function (...args: A) {
-		const now = Date.now();
-		if (now - lastTime >= timeFrameMs) {
-			lastTime = now;
-			return fn(...args);
+		if (isThrottled) {
+			return;
 		}
+
+		const timePassed = Date.now() - lastTime;
+
+		isThrottled = true;
+
+		setTimeout(
+			() => {
+				lastTime = Date.now();
+				isThrottled = false;
+				fn(...args);
+			},
+			timePassed >= timeFrameMs ? 0 : timeFrameMs - timePassed,
+		);
 	};
 }
