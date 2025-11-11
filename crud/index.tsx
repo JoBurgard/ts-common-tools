@@ -14,14 +14,13 @@ type User = {
 	id: string;
 };
 
-type CrudProps<
+type CrudPropsBase<
 	DataCreate extends Record<string, unknown>,
 	DataUpdate extends Record<string, unknown>,
 	ListItem extends Record<string, unknown>,
 > = {
 	prefix: string;
 	title: string;
-	formLayout: Layout;
 	listProcess: () => ListItem[];
 	listColumns: Columns<ListItem>;
 	createSchema: Type<DataCreate>;
@@ -31,6 +30,30 @@ type CrudProps<
 	updateProcess: (props: { data: DataUpdate; user: User; id: string }) => void;
 	deleteProcess: (props: { user: User; id: string }) => void;
 };
+
+type CrudProps<
+	DataCreate extends Record<string, unknown>,
+	DataUpdate extends Record<string, unknown>,
+	ListItem extends Record<string, unknown>,
+> = CrudPropsBase<DataCreate, DataUpdate, ListItem> &
+	(
+		| {
+				formLayout: Layout;
+				createView?: undefined;
+				updateView?: undefined;
+		  }
+		| {
+				formLayout?: undefined;
+				createView: (props: {
+					data?: Record<string, unknown>;
+					issues?: Record<string, string[]>;
+				}) => string;
+				updateView: (props: {
+					data: Record<string, unknown>;
+					issues?: Record<string, string[]>;
+				}) => string;
+		  }
+	);
 
 export function crudCreate<
 	DataCreate extends Record<string, unknown>,
@@ -70,7 +93,7 @@ export function crudCreate<
 		return (
 			<>
 				<a href={`/${props.prefix}/create`} class="btn btn-primary">
-					Erstellen
+					Create
 				</a>
 				<Table data={props.listProcess()} columns={listColumns}></Table>
 				<div data-init={`@get('/${props.prefix}/list/sse')`}></div>
@@ -78,7 +101,7 @@ export function crudCreate<
 		);
 	}
 
-	return new Elysia({ prefix: 'meals' })
+	return new Elysia({ prefix: props.prefix })
 		.use(pluginAuth)
 		.macro({
 			id: {
@@ -106,7 +129,6 @@ export function crudCreate<
 				// rerenders the page when an update event is emitted
 				try {
 					for await (const _ of on(events, 'update', { signal: controller.signal })) {
-						// TODO: only send morph area. toasts should be outside of that area
 						yield dstar.patchElements((<div id="morph">{renderList(props)}</div>) as string);
 						yield sendToast({ message: new Date().toString() });
 					}
@@ -121,11 +143,19 @@ export function crudCreate<
 		.get(
 			'/create',
 			({ user }) => {
+				if (props.formLayout) {
+					return (
+						<App user={user}>
+							<FormEdit prefix={props.prefix} type="create">
+								<FormLayout layout={props.formLayout}></FormLayout>
+							</FormEdit>
+						</App>
+					);
+				}
+
 				return (
 					<App user={user}>
-						<FormEdit prefix={props.prefix} type="create">
-							<FormLayout layout={props.formLayout}></FormLayout>
-						</FormEdit>
+						<props.createView></props.createView>
 					</App>
 				);
 			},
@@ -149,19 +179,32 @@ export function crudCreate<
 					}
 				}
 
-				yield dstar.patchElements(
-					(
-						<App user={user}>
-							<FormEdit prefix={props.prefix} errorMessage={errorMessage} type="create">
-								<FormLayout
-									layout={props.formLayout}
-									issues={data instanceof type.errors ? data.flatProblemsByPath : undefined}
+				if (props.formLayout) {
+					yield dstar.patchElements(
+						(
+							<App user={user}>
+								<FormEdit prefix={props.prefix} errorMessage={errorMessage} type="create">
+									<FormLayout
+										layout={props.formLayout}
+										data={data as Record<string, unknown>}
+										issues={data instanceof type.errors ? data.flatProblemsByPath : undefined}
+									></FormLayout>
+								</FormEdit>
+							</App>
+						) as string,
+					);
+				} else {
+					yield dstar.patchElements(
+						(
+							<App user={user}>
+								<props.createView
 									data={data as Record<string, unknown>}
-								></FormLayout>
-							</FormEdit>
-						</App>
-					) as string,
-				);
+									issues={data instanceof type.errors ? data.flatProblemsByPath : undefined}
+								></props.createView>
+							</App>
+						) as string,
+					);
+				}
 			},
 			{
 				auth: true,
@@ -175,14 +218,23 @@ export function crudCreate<
 					return status(404);
 				}
 
-				return (
-					<App user={user}>
-						<FormEdit prefix={props.prefix} type="update" id={id}>
-							<FormLayout layout={props.formLayout} data={data}></FormLayout>
-						</FormEdit>
-					</App>
-				);
+				if (props.formLayout) {
+					return (
+						<App user={user}>
+							<FormEdit prefix={props.prefix} type="update" id={id}>
+								<FormLayout layout={props.formLayout} data={data}></FormLayout>
+							</FormEdit>
+						</App>
+					);
+				} else {
+					return (
+						<App user={user}>
+							<props.updateView data={data}></props.updateView>
+						</App>
+					);
+				}
 			},
+
 			{
 				auth: true,
 				id: true,
@@ -209,23 +261,34 @@ export function crudCreate<
 					}
 				}
 
-				return (
-					<App user={user}>
-						<FormEdit
-							prefix={props.prefix}
-							successMessage={successMessage}
-							errorMessage={errorMessage}
-							type="update"
-							id={id}
-						>
-							<FormLayout
-								layout={props.formLayout}
+				if (props.formLayout) {
+					return (
+						<App user={user}>
+							<FormEdit
+								prefix={props.prefix}
+								successMessage={successMessage}
+								errorMessage={errorMessage}
+								type="update"
+								id={id}
+							>
+								<FormLayout
+									layout={props.formLayout}
+									data={formData}
+									issues={data instanceof type.errors ? data.flatProblemsByPath : undefined}
+								></FormLayout>
+							</FormEdit>
+						</App>
+					);
+				} else {
+					return (
+						<App user={user}>
+							<props.updateView
 								data={formData}
 								issues={data instanceof type.errors ? data.flatProblemsByPath : undefined}
-							></FormLayout>
-						</FormEdit>
-					</App>
-				);
+							></props.updateView>
+						</App>
+					);
+				}
 			},
 			{
 				auth: true,
@@ -280,9 +343,7 @@ function FormEdit(props: PropsWithChildren<FormEditProps>) {
 				>
 					{props.children as 'safe'}
 					<div class="mt-6 flex justify-end">
-						<button class="btn btn-primary">
-							{props.type === 'create' ? 'Erstellen' : 'Speichern'}
-						</button>
+						<button class="btn btn-primary">{props.type === 'create' ? 'Create' : 'Save'}</button>
 					</div>
 				</form>
 			</div>
