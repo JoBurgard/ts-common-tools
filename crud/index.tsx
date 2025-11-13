@@ -166,8 +166,11 @@ export function crudCreate<
 		.post(
 			'/create',
 			async function* ({ user, request }) {
-				const raw = Object.fromEntries((await request.formData()).entries());
-				const data = props.createSchema(raw);
+				const raw = await dstar.readSignals(request);
+				if (!raw.ok) {
+					throw new Error(raw.error);
+				}
+				const data = props.createSchema(raw.signals?.crud ?? {});
 
 				let errorMessage: string | undefined = undefined;
 				if (!(data instanceof type.errors)) {
@@ -176,13 +179,14 @@ export function crudCreate<
 						yield dstar.redirect(`/${props.prefix}/list`);
 					} catch {
 						errorMessage = 'Something went wrong. Please contact the support.';
+						console.trace(errorMessage);
 					}
 				}
 
 				if (props.formLayout) {
 					yield dstar.patchElements(
 						(
-							<App user={user}>
+							<div id="morph">
 								<FormEdit prefix={props.prefix} errorMessage={errorMessage} type="create">
 									<FormLayout
 										layout={props.formLayout}
@@ -190,18 +194,18 @@ export function crudCreate<
 										issues={data instanceof type.errors ? data.flatProblemsByPath : undefined}
 									></FormLayout>
 								</FormEdit>
-							</App>
+							</div>
 						) as string,
 					);
 				} else {
 					yield dstar.patchElements(
 						(
-							<App user={user}>
+							<div id="morph">
 								<props.createView
 									data={data as Record<string, unknown>}
 									issues={data instanceof type.errors ? data.flatProblemsByPath : undefined}
 								></props.createView>
-							</App>
+							</div>
 						) as string,
 					);
 				}
