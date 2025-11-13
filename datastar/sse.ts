@@ -111,4 +111,43 @@ function redirect(location: string) {
 	});
 }
 
-export const dstar = { send, patchElements, executeScript, redirect };
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+export async function readSignals(
+	req: Request,
+): Promise<{ ok: true; signals: Record<string, unknown> } | { ok: false; error: string }> {
+	try {
+		if (req.method === 'GET') {
+			const url = new URL(req.url);
+			const params = url.searchParams;
+			if (params.has('datastar')) {
+				const signals = JSON.parse(params.get('datastar')!);
+
+				if (isRecord(signals)) {
+					return { ok: true, signals };
+				} else {
+					return {
+						ok: false,
+						error: 'Datastar signals are not in the correct format. Expected a Record.',
+					};
+				}
+			} else {
+				return { ok: false, error: 'No correct datstar query parameter' };
+			}
+		}
+
+		const signals = await req.json();
+
+		if (isRecord(signals)) {
+			return { ok: true, signals };
+		}
+
+		return { ok: false, error: 'Parsed JSON body is not of type record' };
+	} catch {
+		return { ok: false, error: 'Unknown error when parsing request' };
+	}
+}
+
+export const dstar = { send, patchElements, executeScript, redirect, readSignals };
