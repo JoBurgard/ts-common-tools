@@ -24,3 +24,9 @@ export function throttle<R, A extends any[]>(
 		);
 	};
 }
+
+// tagged templates
+export const ts = String.raw;
+export const js = String.raw;
+export const css = String.raw;
+export const tw = String.raw;
