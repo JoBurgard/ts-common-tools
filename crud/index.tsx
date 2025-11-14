@@ -14,6 +14,11 @@ type User = {
 	id: string;
 };
 
+export type ComponentView = (props: {
+	data: Record<string, unknown>;
+	issues?: Record<string, string[]>;
+}) => string;
+
 type CrudPropsBase<
 	DataCreate extends Record<string, unknown>,
 	DataUpdate extends Record<string, unknown>,
@@ -44,14 +49,8 @@ type CrudProps<
 		  }
 		| {
 				formLayout?: undefined;
-				createView: (props: {
-					data?: Record<string, unknown>;
-					issues?: Record<string, string[]>;
-				}) => string;
-				updateView: (props: {
-					data: Record<string, unknown>;
-					issues?: Record<string, string[]>;
-				}) => string;
+				createView: ComponentView;
+				updateView: ComponentView;
 		  }
 	);
 
