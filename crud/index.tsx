@@ -15,7 +15,7 @@ type User = {
 };
 
 export type ComponentView = (props: {
-	data: Record<string, unknown>;
+	data?: Record<string, unknown>;
 	issues?: Record<string, string[]>;
 }) => string;
 
