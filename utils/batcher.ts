@@ -1,5 +1,5 @@
 export function createBatchSystem<Context>() {
-	const batchList: Array<
+	let batchList: Array<
 		[
 			fn: (context: Context) => void,
 			resolve: (val: unknown) => void,
@@ -20,8 +20,8 @@ export function createBatchSystem<Context>() {
 			return;
 		}
 
-		const list = structuredClone(batchList);
-		batchList.length = 0;
+		const list = batchList;
+		batchList = [];
 
 		for (const [fn, resolve, reject] of list) {
 			try {
