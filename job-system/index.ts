@@ -9,9 +9,9 @@ export function createJobSystem<CreateParams extends Record<string, unknown>>(pa
 	name: string;
 	version: number;
 }) {
-	const create = (creator: string, jobParams: CreateParams) => {
-		return Result.try(() => {
-			dbBatcher.add((tx) => {
+	const create = async (creator: string, jobParams: CreateParams) => {
+		return await Result.try(async () => {
+			await dbBatcher.add((tx) => {
 				tx.insert(job)
 					.values({
 						id: generateId(),
@@ -26,9 +26,9 @@ export function createJobSystem<CreateParams extends Record<string, unknown>>(pa
 		});
 	};
 
-	const remove = (id: string) => {
-		return Result.try(() => {
-			dbBatcher.add((tx) => {
+	const remove = async (id: string) => {
+		return await Result.try(async () => {
+			await dbBatcher.add((tx) => {
 				tx.delete(job)
 					.where(and(eq(job.taker, params.name), eq(job.id, id)))
 					.run();
