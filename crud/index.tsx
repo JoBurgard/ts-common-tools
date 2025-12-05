@@ -10,6 +10,8 @@ import { dstar } from '$d*';
 import EventEmitter, { on } from 'node:events';
 import { throttle } from '$ext/ts-common-tools/utils';
 
+const ERROR_MESSAGE_GENERIC = 'Something went wrong. Please contact the support.';
+
 type User = {
 	id: string;
 };
@@ -30,7 +32,7 @@ type CrudPropsBase<
 	listProcess: () => ListItem[];
 	listColumns: Columns<ListItem>;
 	createSchema: Type<DataCreate>;
-	createProcess: (props: { data: DataCreate; user: User }) => void;
+	createProcess: (props: { data: DataCreate; user: User }) => void | { id: string };
 	readProcess: (props: { id: string; user: User }) => Record<string, unknown> | undefined;
 	updateSchema: Type<DataUpdate>;
 	updateProcess: (props: { data: DataUpdate; user: User; id: string }) => void;
@@ -50,7 +52,7 @@ type CrudProps<
 		  }
 		| {
 				formLayout?: undefined;
-				createView: ComponentView;
+				createView?: ComponentView;
 				updateView: ComponentView;
 		  }
 	);
@@ -90,11 +92,23 @@ export function crudCreate<
 	];
 
 	function renderList(props: Props) {
+		// If not createView is passed, then we assume, that an item will be created with default
+		// values.
 		return (
 			<>
-				<a href={`/${props.prefix}/create`} class="btn btn-primary">
-					Create
-				</a>
+				{props.createView ? (
+					<a href={`/${props.prefix}/create`} class="btn btn-primary">
+						Create
+					</a>
+				) : (
+					<button
+						type="button"
+						class="btn btn-primary"
+						data-on:click={`@post('/${props.prefix}/create')`}
+					>
+						Create
+					</button>
+				)}
 				<Table data={props.listProcess()} columns={listColumns}></Table>
 				<div data-init={`@get('/${props.prefix}/list/sse')`}></div>
 			</>
@@ -142,7 +156,7 @@ export function crudCreate<
 		)
 		.get(
 			'/create',
-			({ user }) => {
+			({ user, status }) => {
 				if (props.formLayout) {
 					return (
 						<App user={user}>
@@ -151,6 +165,10 @@ export function crudCreate<
 							</FormEdit>
 						</App>
 					);
+				}
+
+				if (!props.createView) {
+					return status(404);
 				}
 
 				return (
@@ -166,6 +184,24 @@ export function crudCreate<
 		.post(
 			'/create',
 			async function* ({ user, request }) {
+				if (!props.formLayout && !props.createView) {
+					// In this case createProcess should create an entry with default placeholder values
+					try {
+						const result = props.createProcess({ data: {} as DataCreate, user });
+						console.log({ result });
+						if (result?.id) {
+							yield dstar.redirect(`/${props.prefix}/${result.id}`);
+						} else {
+							yield dstar.redirect(`/${props.prefix}/list`);
+						}
+					} catch (error) {
+						yield sendToast({ message: ERROR_MESSAGE_GENERIC });
+						console.trace(error);
+					}
+
+					return;
+				}
+
 				const raw = await dstar.readSignals(request);
 				if (!raw.ok) {
 					throw new Error(raw.error);
@@ -177,9 +213,9 @@ export function crudCreate<
 					try {
 						props.createProcess({ data: data as DataCreate, user });
 						yield dstar.redirect(`/${props.prefix}/list`);
-					} catch {
-						errorMessage = 'Something went wrong. Please contact the support.';
-						console.trace(errorMessage);
+					} catch (error) {
+						errorMessage = ERROR_MESSAGE_GENERIC;
+						console.trace(error);
 					}
 				}
 
@@ -197,7 +233,7 @@ export function crudCreate<
 							</div>
 						) as string,
 					);
-				} else {
+				} else if (props.createView) {
 					yield dstar.patchElements(
 						(
 							<div id="morph">
@@ -247,8 +283,11 @@ export function crudCreate<
 		.put(
 			'/:id',
 			async ({ params: { id }, user, request }) => {
-				const raw = Object.fromEntries((await request.formData()).entries());
-				const data = props.createSchema(raw);
+				const raw = await dstar.readSignals(request);
+				if (!raw.ok) {
+					throw new Error(raw.error);
+				}
+				const data = props.createSchema(raw.signals?.crud ?? {});
 
 				let formData: Record<string, unknown> = {};
 
@@ -265,6 +304,7 @@ export function crudCreate<
 					}
 				}
 
+				// TODO: SSE + Toastmessage?
 				if (props.formLayout) {
 					return (
 						<App user={user}>
