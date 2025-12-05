@@ -17,6 +17,7 @@ type User = {
 export type ComponentView = (props: {
 	data?: Record<string, unknown>;
 	issues?: Record<string, string[]>;
+	id?: string;
 }) => string;
 
 type CrudPropsBase<
@@ -288,6 +289,7 @@ export function crudCreate<
 							<props.updateView
 								data={formData}
 								issues={data instanceof type.errors ? data.flatProblemsByPath : undefined}
+								id={id}
 							></props.updateView>
 						</App>
 					);
