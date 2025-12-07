@@ -47,9 +47,8 @@ export function createJobSystem<CreateParams extends Record<string, unknown>>(sy
 				if (!result) {
 					throw 'Job not found';
 				}
+
 				const status = result.status as JobStatus;
-				// TODO: remove log
-				console.log(new Date(), id, 'currentJobStatus', result.status);
 				if (status === 'fail') {
 					throw 'Job failed';
 				}
