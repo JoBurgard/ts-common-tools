@@ -1,28 +1,66 @@
-import { dbBatcher, generateId } from '$db';
+import { db, dbBatcher, generateId } from '$db';
 import { and, eq } from 'drizzle-orm';
 import { Result } from '../utils/result';
 import { job } from './schema/job';
 
 type JobStatus = 'init' | 'in progress' | 'fail' | 'success';
 
-export function createJobSystem<CreateParams extends Record<string, unknown>>(params: {
+export function createJobSystem<CreateParams extends Record<string, unknown>>(systemParams: {
 	name: string;
 	version: number;
 }) {
-	const create = async (creator: string, jobParams: CreateParams) => {
+	const create = async (params: { id?: string; creator: string }, jobParams: CreateParams) => {
 		return await Result.try(async () => {
+			const id = params.id ?? generateId();
 			await dbBatcher.add((tx) => {
 				tx.insert(job)
 					.values({
-						id: generateId(),
-						creator: creator,
-						taker: params.name,
+						id,
+						creator: params.creator,
+						taker: systemParams.name,
 						status: 'init' as JobStatus,
 						parameters: jobParams,
-						version: params.version,
+						version: systemParams.version,
 					})
 					.run();
 			});
+		});
+	};
+
+	async function* getJobStatus(id: string) {
+		while (true) {
+			const result = db
+				.select({ status: job.status })
+				.from(job)
+				.where(eq(job.id, id))
+				.limit(1)
+				.get();
+			yield result;
+			await Bun.sleep(1_000);
+		}
+	}
+
+	const waitForJob = (id: string, timeoutSeconds: number) => {
+		return Result.try(async () => {
+			const startTime = Date.now();
+			for await (const result of getJobStatus(id)) {
+				if (!result) {
+					throw 'Job not found';
+				}
+				const status = result.status as JobStatus;
+				// TODO: remove log
+				console.log(new Date(), id, 'currentJobStatus', result.status);
+				if (status === 'fail') {
+					throw 'Job failed';
+				}
+				if (status === 'success') {
+					return;
+				}
+
+				if (Date.now() - startTime > timeoutSeconds * 1000) {
+					throw 'Timed out';
+				}
+			}
 		});
 	};
 
@@ -30,7 +68,7 @@ export function createJobSystem<CreateParams extends Record<string, unknown>>(pa
 		return await Result.try(async () => {
 			await dbBatcher.add((tx) => {
 				tx.delete(job)
-					.where(and(eq(job.taker, params.name), eq(job.id, id)))
+					.where(and(eq(job.taker, systemParams.name), eq(job.id, id)))
 					.run();
 			});
 		});
@@ -46,9 +84,9 @@ export function createJobSystem<CreateParams extends Record<string, unknown>>(pa
 					})
 					.where(
 						and(
-							eq(job.taker, params.name),
+							eq(job.taker, systemParams.name),
 							eq(job.status, 'init' as JobStatus),
-							eq(job.version, params.version),
+							eq(job.version, systemParams.version),
 						),
 					)
 					.orderBy(job.createdAt)
@@ -72,13 +110,15 @@ export function createJobSystem<CreateParams extends Record<string, unknown>>(pa
 			await dbBatcher.add((tx) => {
 				tx.update(job)
 					.set({ status: params.status, statusContext: params.context ?? {} })
-					.where(eq(job.id, id));
+					.where(eq(job.id, id))
+					.run();
 			});
 		});
 	};
 
 	return {
 		create,
+		waitForJob,
 		remove,
 		take,
 		update,
