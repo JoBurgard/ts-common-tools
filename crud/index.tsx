@@ -269,7 +269,7 @@ export function crudCreate<
 				} else {
 					return (
 						<App user={user}>
-							<props.updateView data={data}></props.updateView>
+							<props.updateView data={data} id={id}></props.updateView>
 						</App>
 					);
 				}
