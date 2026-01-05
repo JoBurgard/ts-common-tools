@@ -10,10 +10,11 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
 }
 
 const layoutFiles = new Glob('**/*.layout.ts');
-console.log('Layout Code-Generator');
+console.log('Layout Code-Generator started');
 
 export async function generateLayoutsWatch(path: string) {
-	const watcher = watch(path, { recursive: true }, async (event, filename) => {
+	await generateLayouts();
+	const watcher = watch(path, { recursive: true }, async (_, filename) => {
 		if (filename && layoutFiles.match(path + '/' + filename)) {
 			await generateLayouts(path + '/' + filename);
 		}
