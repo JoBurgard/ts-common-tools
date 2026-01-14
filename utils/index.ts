@@ -45,6 +45,15 @@ export function waitForAbort(signal: AbortSignal) {
 	});
 }
 
+export function escapeHtml(input: string) {
+	return input
+		.replace('&', '&amp;')
+		.replace('<', '&lt;')
+		.replace('>', '&gt;')
+		.replace('"', '&quot;')
+		.replace("'", '&#039');
+}
+
 // tagged templates
 export const ts = String.raw;
 export const js = String.raw;
