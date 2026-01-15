@@ -54,6 +54,35 @@ export function escapeHtml(input: string) {
 		.replace("'", '&#039');
 }
 
+export type ReplacementsList = [string, string][];
+export function strReplaceMatches(text: string, replacements: ReplacementsList): string {
+	for (const [from, to] of replacements) {
+		text = text.replaceAll(from, to);
+	}
+
+	return text;
+}
+
+export type InsertsList = [number, string][];
+export function strInsertTexts(text: string, inserts: InsertsList): string {
+	if (inserts.length < 1) {
+		return text;
+	}
+
+	inserts.sort((a, b) => a[0] - b[0]);
+
+	let output = '';
+	let previous = 0;
+
+	for (const [at, insert] of inserts) {
+		output += text.slice(previous, at) + insert;
+		previous = at;
+	}
+
+	output += text.slice(previous);
+
+	return output;
+}
 // tagged templates
 export const ts = String.raw;
 export const js = String.raw;
