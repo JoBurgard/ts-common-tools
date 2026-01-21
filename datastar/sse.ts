@@ -74,6 +74,29 @@ function patchElements(
 	return send({ eventType: 'datastar-patch-elements', eventId, retryDurationMs, dataLines });
 }
 
+function patchSignals(
+	signals: string | Record<string, unknown>,
+	{
+		onlyIfMissing,
+		eventId,
+		retryDurationMs,
+	}: {
+		onlyIfMissing?: boolean;
+		eventId?: string;
+		retryDurationMs?: number;
+	} = {},
+): string {
+	const dataLines: string[] = [];
+
+	if (onlyIfMissing) {
+		dataLines.push(`onlyIfMissing true`);
+	}
+
+	dataLines.push(typeof signals === 'string' ? signals : JSON.stringify(signals));
+
+	return send({ eventType: 'datastar-patch-signals', eventId, retryDurationMs, dataLines });
+}
+
 function executeScript(
 	script: string,
 	{
@@ -150,4 +173,4 @@ export async function readSignals(
 	}
 }
 
-export const dstar = { send, patchElements, executeScript, redirect, readSignals };
+export const dstar = { send, patchElements, patchSignals, executeScript, redirect, readSignals };
