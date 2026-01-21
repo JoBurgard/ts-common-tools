@@ -1,3 +1,5 @@
+import path from 'node:path';
+
 export function throttle<R, A extends any[]>(
 	fn: (...args: A) => R,
 	timeFrameMs: number,
@@ -83,8 +85,41 @@ export function strInsertTexts(text: string, inserts: InsertsList): string {
 
 	return output;
 }
+
 // tagged templates
 export const ts = String.raw;
 export const js = String.raw;
 export const css = String.raw;
 export const tw = String.raw;
+
+/**
+ * Creates a path resolver that makes sure it stays inside the base path. Otherwise it throws an error/
+ */
+export class SafePathResolver {
+	#basePath;
+
+	constructor(basePath: string) {
+		this.#basePath = basePath;
+	}
+
+	get basePath() {
+		return this.#basePath;
+	}
+
+	/**
+	 * Resolves a path inside the base directory.
+	 * @throws When trying to escape from the base dir
+	 */
+	resolveSafe(...paths: string[]) {
+		const resolved = path.resolve(this.#basePath, ...paths);
+
+		if (!resolved.startsWith(this.#basePath)) {
+			throw new Error(
+				'The path was resolved outside the base directory. That is not allowed. ' +
+					JSON.stringify({ basePath: this.#basePath, resolved }),
+			);
+		}
+
+		return resolved;
+	}
+}
