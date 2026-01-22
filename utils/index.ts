@@ -123,3 +123,21 @@ export class SafePathResolver {
 		return resolved;
 	}
 }
+
+export class EventListenerCleaner {
+	list: [
+		listener: { removeEventListener: (...args: any[]) => void },
+		name: string,
+		handler: (event: any) => void,
+	][] = [];
+
+	add(item: (typeof this.list)[number]) {
+		this.list.push(item);
+	}
+
+	cleanup() {
+		for (const item of this.list) {
+			item[0].removeEventListener(item[1], item[2]);
+		}
+	}
+}
