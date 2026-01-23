@@ -92,7 +92,7 @@ function patchSignals(
 		dataLines.push(`onlyIfMissing true`);
 	}
 
-	dataLines.push(typeof signals === 'string' ? signals : JSON.stringify(signals));
+	dataLines.push(`signals ${typeof signals === 'string' ? signals : JSON.stringify(signals)}`);
 
 	return send({ eventType: 'datastar-patch-signals', eventId, retryDurationMs, dataLines });
 }
