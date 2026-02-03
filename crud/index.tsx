@@ -282,7 +282,7 @@ export function crudCreate<
 		)
 		.put(
 			'/:id',
-			async ({ params: { id }, user, request }) => {
+			async function* ({ params: { id }, user, request }) {
 				const raw = await dstar.readSignals(request);
 				if (!raw.ok) {
 					throw new Error(raw.error);
@@ -304,35 +304,31 @@ export function crudCreate<
 					}
 				}
 
-				// TODO: SSE + Toastmessage?
 				if (props.formLayout) {
-					return (
-						<App user={user}>
-							<FormEdit
-								prefix={props.prefix}
-								successMessage={successMessage}
-								errorMessage={errorMessage}
-								type="update"
-								id={id}
-							>
-								<FormLayout
-									layout={props.formLayout}
-									data={formData}
-									issues={data instanceof type.errors ? data.flatProblemsByPath : undefined}
-								></FormLayout>
-							</FormEdit>
-						</App>
+					yield dstar.patchElements(
+						(
+							<div id="morph">
+								<FormEdit
+									prefix={props.prefix}
+									successMessage={successMessage}
+									errorMessage={errorMessage}
+									type="update"
+									id={id}
+								>
+									<FormLayout
+										layout={props.formLayout}
+										data={formData}
+										issues={data instanceof type.errors ? data.flatProblemsByPath : undefined}
+									></FormLayout>
+								</FormEdit>
+							</div>
+						) as string,
+						{ mode: 'replace' },
 					);
+				} else if (data instanceof type.errors) {
+					yield dstar.patchSignals({ crudIssues: data.flatProblemsByPath });
 				} else {
-					return (
-						<App user={user}>
-							<props.updateView
-								data={formData}
-								issues={data instanceof type.errors ? data.flatProblemsByPath : undefined}
-								id={id}
-							></props.updateView>
-						</App>
-					);
+					yield sendToast({ type: 'success', message: 'Saved' });
 				}
 			},
 			{
