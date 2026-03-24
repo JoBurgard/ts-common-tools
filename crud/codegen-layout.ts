@@ -9,13 +9,19 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
 	generateLayouts();
 }
 
-const layoutFiles = new Glob('**/*.layout.ts');
+const layoutFiles = new Glob('**/*.layout.{ts,ts~}');
 console.log('Layout Code-Generator started');
 
 export async function generateLayoutsWatch(path: string) {
 	await generateLayouts();
-	const watcher = watch(path, { recursive: true }, async (_, filename) => {
+	const watcher = watch(path, { recursive: true }, async (eventType, filename) => {
+		if (eventType === 'rename') {
+			return;
+		}
 		if (filename && layoutFiles.match(path + '/' + filename)) {
+			if (filename.endsWith('~')) {
+				filename = filename.slice(0, -1);
+			}
 			await generateLayouts(path + '/' + filename);
 		}
 	});
