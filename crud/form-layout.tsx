@@ -1,4 +1,5 @@
 import { type } from 'arktype';
+import { ts } from '../utils';
 
 export type Layout = Array<
 	| {
@@ -38,6 +39,7 @@ export default function formLayout(props: {
 						name={item.name}
 						type={item.inputType}
 						value={String(props.data?.[item.name] ?? '')}
+						data-bind={'crud.' + item.name}
 					/>
 					{!!item.description && (
 						<p class="label" safe>
@@ -58,5 +60,14 @@ export default function formLayout(props: {
 		return inner;
 	}
 
-	return <div class="flex flex-col gap-4">{inner as 'safe'}</div>;
+	return (
+		<div
+			class="flex flex-col gap-4"
+			data-signals={ts`{
+        crud: {}
+      }`}
+		>
+			{inner as 'safe'}
+		</div>
+	);
 }

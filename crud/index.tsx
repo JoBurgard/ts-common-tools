@@ -8,7 +8,8 @@ import Elysia from 'elysia';
 import Table, { type Columns } from './table';
 import { dstar } from '$d*';
 import EventEmitter, { on } from 'node:events';
-import { throttle } from '$ext/ts-common-tools/utils';
+import { throttle, ts } from '$ext/ts-common-tools/utils';
+import type { MaybePromise } from '../types';
 
 const ERROR_MESSAGE_GENERIC = 'Something went wrong. Please contact the support.';
 
@@ -32,7 +33,7 @@ type CrudPropsBase<
 	listProcess: () => ListItem[];
 	listColumns: Columns<ListItem>;
 	createSchema: Type<DataCreate>;
-	createProcess: (props: { data: DataCreate; user: User }) => void | { id: string };
+	createProcess: (props: { data: DataCreate; user: User }) => MaybePromise<void | { id: string }>;
 	readProcess: (props: { id: string; user: User }) => Record<string, unknown> | undefined;
 	updateSchema: Type<DataUpdate>;
 	updateProcess: (props: { data: DataUpdate; user: User; id: string }) => void;
@@ -97,10 +98,6 @@ export function crudCreate<
 		return (
 			<>
 				{props.createView ? (
-					<a href={`/${props.prefix}/create`} class="btn btn-primary">
-						Create
-					</a>
-				) : (
 					<button
 						type="button"
 						class="btn btn-primary"
@@ -108,6 +105,10 @@ export function crudCreate<
 					>
 						Create
 					</button>
+				) : (
+					<a href={`/${props.prefix}/create`} class="btn btn-primary">
+						Create
+					</a>
 				)}
 				<Table data={props.listProcess()} columns={listColumns}></Table>
 				<div data-init={`@get('/${props.prefix}/list/sse')`}></div>
@@ -187,8 +188,10 @@ export function crudCreate<
 				if (!props.formLayout && !props.createView) {
 					// In this case createProcess should create an entry with default placeholder values
 					try {
-						const result = props.createProcess({ data: {} as DataCreate, user });
-						console.log({ result });
+						let result = props.createProcess({ data: {} as DataCreate, user });
+						if (result instanceof Promise) {
+							result = await result;
+						}
 						if (result?.id) {
 							yield dstar.redirect(`/${props.prefix}/${result.id}`);
 						} else {
@@ -211,7 +214,10 @@ export function crudCreate<
 				let errorMessage: string | undefined = undefined;
 				if (!(data instanceof type.errors)) {
 					try {
-						props.createProcess({ data: data as DataCreate, user });
+						let result = props.createProcess({ data: data as DataCreate, user });
+						if (result instanceof Promise) {
+							result = await result;
+						}
 						yield dstar.redirect(`/${props.prefix}/list`);
 					} catch (error) {
 						errorMessage = ERROR_MESSAGE_GENERIC;
@@ -378,11 +384,12 @@ function FormEdit(props: PropsWithChildren<FormEditProps>) {
 					id="crud-form"
 					data-on:submit={
 						props.type === 'create'
-							? `@post('/${props.prefix}/create', {contentType: 'form'})`
-							: `@put('/${props.prefix}/${props.id}', {contentType: 'form'})`
+							? ts`@post('/${props.prefix}/create',      { filterSignals: { include: /^crud\./ } })`
+							: ts`@put( '/${props.prefix}/${props.id}', { filterSignals: { include: /^crud\./ } })`
 					}
 				>
 					{props.children as 'safe'}
+					<pre data-json-signals></pre>
 					<div class="mt-6 flex justify-end">
 						<button class="btn btn-primary">{props.type === 'create' ? 'Create' : 'Save'}</button>
 					</div>
