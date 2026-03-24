@@ -33,11 +33,24 @@ type CrudPropsBase<
 	listProcess: () => ListItem[];
 	listColumns: Columns<ListItem>;
 	createSchema: Type<DataCreate>;
-	createProcess: (props: { data: DataCreate; user: User }) => MaybePromise<void | { id: string }>;
-	readProcess: (props: { id: string; user: User }) => Record<string, unknown> | undefined;
+	createProcess: (props: {
+		data: DataCreate;
+		user: User;
+		request: Request;
+	}) => MaybePromise<void | { id: string }>;
+	readProcess: (props: {
+		id: string;
+		user: User;
+		request: Request;
+	}) => MaybePromise<Record<string, unknown> | undefined>;
 	updateSchema: Type<DataUpdate>;
-	updateProcess: (props: { data: DataUpdate; user: User; id: string }) => void;
-	deleteProcess: (props: { user: User; id: string }) => void;
+	updateProcess: (props: {
+		data: DataUpdate;
+		user: User;
+		id: string;
+		request: Request;
+	}) => MaybePromise<void>;
+	deleteProcess: (props: { user: User; id: string; request: Request }) => MaybePromise<void>;
 };
 
 type CrudProps<
@@ -97,7 +110,7 @@ export function crudCreate<
 		// values.
 		return (
 			<>
-				{props.createView ? (
+				{!props.formLayout && !props.createView ? (
 					<button
 						type="button"
 						class="btn btn-primary"
@@ -188,7 +201,7 @@ export function crudCreate<
 				if (!props.formLayout && !props.createView) {
 					// In this case createProcess should create an entry with default placeholder values
 					try {
-						let result = props.createProcess({ data: {} as DataCreate, user });
+						let result = props.createProcess({ data: {} as DataCreate, user, request });
 						if (result instanceof Promise) {
 							result = await result;
 						}
@@ -214,7 +227,7 @@ export function crudCreate<
 				let errorMessage: string | undefined = undefined;
 				if (!(data instanceof type.errors)) {
 					try {
-						let result = props.createProcess({ data: data as DataCreate, user });
+						let result = props.createProcess({ data: data as DataCreate, user, request });
 						if (result instanceof Promise) {
 							result = await result;
 						}
@@ -258,26 +271,33 @@ export function crudCreate<
 		)
 		.get(
 			'/:id',
-			({ params: { id }, user, status }) => {
-				const data = props.readProcess({ id, user });
-				if (!data) {
-					return status(404);
-				}
+			async ({ params: { id }, user, status, request }) => {
+				try {
+					let result = props.readProcess({ id, user, request });
+					if (result instanceof Promise) {
+						result = await result;
+					}
+					if (!result) {
+						return status(404);
+					}
 
-				if (props.formLayout) {
-					return (
-						<App user={user}>
-							<FormEdit prefix={props.prefix} type="update" id={id}>
-								<FormLayout layout={props.formLayout} data={data}></FormLayout>
-							</FormEdit>
-						</App>
-					);
-				} else {
-					return (
-						<App user={user}>
-							<props.updateView data={data} id={id}></props.updateView>
-						</App>
-					);
+					if (props.formLayout) {
+						return (
+							<App user={user}>
+								<FormEdit prefix={props.prefix} type="update" id={id}>
+									<FormLayout layout={props.formLayout} data={result}></FormLayout>
+								</FormEdit>
+							</App>
+						);
+					} else {
+						return (
+							<App user={user}>
+								<props.updateView data={result} id={id}></props.updateView>
+							</App>
+						);
+					}
+				} catch (error) {
+					console.trace(error);
 				}
 			},
 
@@ -303,9 +323,15 @@ export function crudCreate<
 				if (!(data instanceof type.errors)) {
 					formData = data;
 					try {
-						props.updateProcess({ data: data as DataUpdate, user, id });
+						let result = props.updateProcess({ data: data as DataUpdate, user, id, request });
+
+						if (result instanceof Promise) {
+							result = await result;
+						}
+
 						successMessage = 'Saved.';
-					} catch {
+					} catch (error) {
+						console.trace(error);
 						errorMessage = 'Something went wrong. Please contact the support.';
 					}
 				}
@@ -344,11 +370,15 @@ export function crudCreate<
 		)
 		.delete(
 			'/:id',
-			async function* ({ user, status, params: { id } }) {
+			async function* ({ user, status, params: { id }, request }) {
 				try {
-					props.deleteProcess({ user, id });
+					let result = props.deleteProcess({ user, id, request });
+					if (result instanceof Promise) {
+						result = await result;
+					}
 					yield sendToast({ type: 'success', message: 'Deleted' });
-				} catch {
+				} catch (error) {
+					console.trace(error);
 					yield sendToast({ type: 'error', message: 'Something went wrong' });
 					return status(500);
 				}
