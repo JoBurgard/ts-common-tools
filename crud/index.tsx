@@ -1,16 +1,16 @@
+import { dstar } from '$d*';
 import { sendToast } from '$ext/ts-common-tools/datastar/toaster';
-import FormLayout, { type Layout } from './form-layout';
+import { throttle, ts } from '$ext/ts-common-tools/utils';
+import { routeCheckPermission, type createSubjectAction } from '$lib/permissions';
 import App from '$src/layouts/App';
 import { pluginAuth } from '$src/modules/auth';
 import { type PropsWithChildren } from '@kitajs/html';
 import { Type, type } from 'arktype';
 import Elysia from 'elysia';
-import Table, { type Columns } from './table';
-import { dstar } from '$d*';
 import EventEmitter, { on } from 'node:events';
-import { throttle, ts } from '$ext/ts-common-tools/utils';
 import type { MaybePromise } from '../types';
-import type { createSubjectAction, PermissionsInfo } from '$lib/permissions';
+import FormLayout, { type Layout } from './form-layout';
+import Table, { type Columns } from './table';
 
 const ERROR_MESSAGE_GENERIC = 'Something went wrong. Please contact the support.';
 
@@ -45,6 +45,7 @@ type CrudPropsBase<
 		user: User;
 		request: Request;
 	}) => MaybePromise<Record<string, unknown> | undefined>;
+	readPermission?: ReturnType<typeof createSubjectAction>;
 	updateSchema: Type<DataUpdate>;
 	updateProcess: (props: {
 		data: DataUpdate;
@@ -52,7 +53,9 @@ type CrudPropsBase<
 		id: string;
 		request: Request;
 	}) => MaybePromise<void>;
+	updatePermission?: ReturnType<typeof createSubjectAction>;
 	deleteProcess: (props: { user: User; id: string; request: Request }) => MaybePromise<void>;
+	deletePermission?: ReturnType<typeof createSubjectAction>;
 };
 
 type CrudProps<
@@ -195,6 +198,9 @@ export function crudCreate<
 			},
 			{
 				auth: true,
+				beforeHandle: props.createPermission
+					? routeCheckPermission(props.createPermission[0], props.createPermission[1])
+					: undefined,
 			},
 		)
 		.post(
@@ -269,6 +275,9 @@ export function crudCreate<
 			},
 			{
 				auth: true,
+				beforeHandle: props.createPermission
+					? routeCheckPermission(props.createPermission[0], props.createPermission[1])
+					: undefined,
 			},
 		)
 		.get(
@@ -306,6 +315,9 @@ export function crudCreate<
 			{
 				auth: true,
 				id: true,
+				beforeHandle: props.readPermission
+					? routeCheckPermission(props.readPermission[0], props.readPermission[1])
+					: undefined,
 			},
 		)
 		.put(
@@ -368,6 +380,9 @@ export function crudCreate<
 			{
 				auth: true,
 				id: true,
+				beforeHandle: props.updatePermission
+					? routeCheckPermission(props.updatePermission[0], props.updatePermission[1])
+					: undefined,
 			},
 		)
 		.delete(
@@ -390,6 +405,9 @@ export function crudCreate<
 			{
 				auth: true,
 				id: true,
+				beforeHandle: props.deletePermission
+					? routeCheckPermission(props.deletePermission[0], props.deletePermission[1])
+					: undefined,
 			},
 		);
 }
