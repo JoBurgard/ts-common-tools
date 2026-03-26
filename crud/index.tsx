@@ -10,6 +10,7 @@ import { dstar } from '$d*';
 import EventEmitter, { on } from 'node:events';
 import { throttle, ts } from '$ext/ts-common-tools/utils';
 import type { MaybePromise } from '../types';
+import type { createSubjectAction, PermissionsInfo } from '$lib/permissions';
 
 const ERROR_MESSAGE_GENERIC = 'Something went wrong. Please contact the support.';
 
@@ -38,6 +39,7 @@ type CrudPropsBase<
 		user: User;
 		request: Request;
 	}) => MaybePromise<void | { id: string }>;
+	createPermission?: ReturnType<typeof createSubjectAction>;
 	readProcess: (props: {
 		id: string;
 		user: User;

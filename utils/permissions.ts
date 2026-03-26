@@ -1,18 +1,26 @@
 import type { Context } from 'elysia';
 
-export function createPermissionsSystem<
-	Permissions extends Record<string, Record<string, string[]>>,
->(permissions: Permissions) {
-	type PermissionSubject = keyof Permissions;
-	type PermissionSubjectActions = { [K in PermissionSubject]: keyof Permissions[K] };
-	type AvailableRoles = {
-		[K in PermissionSubject]: Permissions[K][keyof Permissions[K]];
+export type PermissionsHelpers<
+	Permissions extends Record<string, Record<string, readonly string[]>>,
+> = {
+	subject: keyof Permissions;
+	subjectActions: {
+		[K in keyof Permissions]: keyof Permissions[K];
+	};
+	availableRoles: {
+		[K in keyof Permissions]: Permissions[K][keyof Permissions[K]];
 	}[keyof Permissions][number][];
+};
 
-	const allowedTo = <PS extends PermissionSubject>(
-		roles: AvailableRoles,
-		subject: PS,
-		action: PermissionSubjectActions[PS],
+export function createPermissionsSystem<
+	const Permissions extends Record<string, Record<string, readonly string[]>>,
+>(permissions: Permissions) {
+	type Perms = PermissionsHelpers<Permissions>;
+
+	const allowedTo = <const Subject extends Perms['subject']>(
+		roles: Perms['availableRoles'],
+		subject: Subject,
+		action: Perms['subjectActions'][Subject],
 	) => {
 		const rolesWithPermission = permissions?.[subject]?.[action as string];
 
@@ -25,6 +33,13 @@ export function createPermissionsSystem<
 
 	const notAllowedTo: typeof allowedTo = (...props) => {
 		return !allowedTo(...props);
+	};
+
+	const createSubjectAction = <const Subject extends Perms['subject']>(
+		subject: Subject,
+		action: Perms['subjectActions'][Subject],
+	) => {
+		return [subject, action];
 	};
 
 	// for elysia routes
@@ -40,7 +55,7 @@ export function createPermissionsSystem<
 	};
 
 	// for elysia routes
-	const routeCheckRole = (roles: AvailableRoles) => {
+	const routeCheckRole = (roles: Perms['availableRoles']) => {
 		return (ctx: { status: Context['status']; user: { roles: string[] } }) => {
 			if (!roles.some((it) => ctx.user.roles.includes(it))) {
 				return ctx.status(403);
@@ -51,6 +66,7 @@ export function createPermissionsSystem<
 	return {
 		allowedTo,
 		notAllowedTo,
+		createSubjectAction,
 		routeCheckPermission,
 		routeCheckRole,
 	};
