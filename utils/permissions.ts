@@ -39,7 +39,7 @@ export function createPermissionsSystem<
 		subject: Subject,
 		action: Perms['subjectActions'][Subject],
 	) => {
-		return [subject, action];
+		return [subject, action] as const;
 	};
 
 	// for elysia routes
@@ -47,7 +47,7 @@ export function createPermissionsSystem<
 		subject: Parameters<typeof allowedTo>[1],
 		action: Parameters<typeof allowedTo>[2],
 	) => {
-		return (ctx: Context & { user: { roles: string } }) => {
+		return (ctx: Context & { user: { roles: string[] } }) => {
 			if (notAllowedTo(ctx.user.roles as any, subject, action)) {
 				return ctx.status(403);
 			}
