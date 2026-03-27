@@ -33,6 +33,7 @@ type CrudPropsBase<
 	title: string;
 	listProcess: () => ListItem[];
 	listColumns: Columns<ListItem>;
+	listPermission?: ReturnType<typeof createSubjectAction>;
 	createSchema: Type<DataCreate>;
 	createProcess: (props: {
 		data: DataCreate;
@@ -148,7 +149,12 @@ export function crudCreate<
 			({ user }) => {
 				return <App user={user}>{renderList(props)}</App>;
 			},
-			{ auth: true },
+			{
+				auth: true,
+				beforeHandle: props.listPermission
+					? routeCheckPermission(props.listPermission[0], props.listPermission[1])
+					: undefined,
+			},
 		)
 		.get(
 			'/list/sse',
@@ -171,7 +177,12 @@ export function crudCreate<
 					}
 				}
 			},
-			{ auth: true },
+			{
+				auth: true,
+				beforeHandle: props.listPermission
+					? routeCheckPermission(props.listPermission[0], props.listPermission[1])
+					: undefined,
+			},
 		)
 		.get(
 			'/create',
@@ -228,7 +239,7 @@ export function crudCreate<
 
 				const raw = await dstar.readSignals(request);
 				if (!raw.ok) {
-					throw new Error(raw.error);
+					return ERROR_MESSAGE_GENERIC;
 				}
 				const data = props.createSchema(raw.signals?.crud ?? {});
 
@@ -325,7 +336,7 @@ export function crudCreate<
 			async function* ({ params: { id }, user, request }) {
 				const raw = await dstar.readSignals(request);
 				if (!raw.ok) {
-					throw new Error(raw.error);
+					return ERROR_MESSAGE_GENERIC;
 				}
 				const data = props.createSchema(raw.signals?.crud ?? {});
 
@@ -346,7 +357,7 @@ export function crudCreate<
 						successMessage = 'Saved.';
 					} catch (error) {
 						console.trace(error);
-						errorMessage = 'Something went wrong. Please contact the support.';
+						errorMessage = ERROR_MESSAGE_GENERIC;
 					}
 				}
 
