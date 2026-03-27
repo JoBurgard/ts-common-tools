@@ -48,6 +48,9 @@ export function createPermissionsSystem<
 		action: Parameters<typeof allowedTo>[2],
 	) => {
 		return (ctx: Context & { user: { roles: string[] } }) => {
+			if (ctx.user.roles.includes('superadmin')) {
+				return;
+			}
 			if (notAllowedTo(ctx.user.roles as any, subject, action)) {
 				return ctx.status(403);
 			}
@@ -57,6 +60,9 @@ export function createPermissionsSystem<
 	// for elysia routes
 	const routeCheckRole = (roles: Perms['availableRoles']) => {
 		return (ctx: { status: Context['status']; user: { roles: string[] } }) => {
+			if (ctx.user.roles.includes('superadmin')) {
+				return;
+			}
 			if (!roles.some((it) => ctx.user.roles.includes(it))) {
 				return ctx.status(403);
 			}
