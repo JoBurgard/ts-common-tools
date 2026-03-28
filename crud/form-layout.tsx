@@ -14,6 +14,15 @@ export type Layout = Array<
 			description?: string;
 			validation: type;
 	  }
+	| {
+			type: 'options';
+			inputType: 'checkbox' | 'radio';
+			name: string;
+			label: string;
+			description?: string;
+			options: string[];
+			validation: type;
+	  }
 >;
 
 export default function formLayout(props: {
@@ -24,11 +33,13 @@ export default function formLayout(props: {
 }) {
 	let inner = '';
 	for (const item of props.layout) {
-		if (item.type === 'row') {
+		if ('row' === item.type) {
 			inner += (
 				<div class="flex gap-4">{formLayout({ layout: item.children, disableWrapper: true })}</div>
 			);
-		} else if (item.type === 'input') {
+			continue;
+		}
+		if ('input' === item.type) {
 			inner += (
 				<fieldset class="fieldset w-full">
 					<legend class="fieldset-legend" safe>
@@ -53,7 +64,40 @@ export default function formLayout(props: {
 					)}
 				</fieldset>
 			);
+			continue;
 		}
+		if ('options' === item.type) {
+			inner += (
+				<fieldset class="fieldset w-full">
+					<legend class="fieldset-legend" safe>
+						{item.label}
+					</legend>
+					{item.options.map((it) => (
+						<input
+							class="input w-full"
+							name={item.name}
+							type={item.inputType}
+							value={it}
+							checked={props.data?.[item.name] === it}
+							data-bind={'crud.' + item.name}
+						/>
+					))}
+					{!!item.description && (
+						<p class="label" safe>
+							{item.description}
+						</p>
+					)}
+					{!!props.issues?.[item.name] && (
+						<p class="label text-error" safe>
+							{props.issues[item.name]}
+						</p>
+					)}
+				</fieldset>
+			);
+			continue;
+		}
+		// make sure we implement all the types
+		item satisfies never;
 	}
 
 	if (props?.disableWrapper) {
