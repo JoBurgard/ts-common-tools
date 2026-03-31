@@ -72,45 +72,42 @@ export default function formLayout(props: {
 					<legend class="fieldset-legend" safe>
 						{item.label}
 					</legend>
-					{item.inputType === 'checkbox' && (
-						<div {...{ ['data-signals:crud.' + item.name]: '[]' }}></div>
-					)}
-					{item.inputType === 'checkbox' &&
-						item.options.map((it) => (
+					{item.options.map((it, idx) => (
+						<>
 							<label class="label">
 								<input
-									class="checkbox"
+									class={item.inputType}
 									name={item.name}
 									type={item.inputType}
 									value={it.value}
-									checked={props.data?.[item.name] === it}
+									checked={(props.data?.[item.name] as string[] | undefined)?.includes(it.value)}
 									data-bind={'crud.' + item.name}
 								/>
 								{it.label as 'safe'}
 							</label>
-						))}
-					{item.inputType === 'radio' &&
-						item.options.map((it) => (
-							<label class="label">
-								<input
-									class="radio"
-									name={item.name}
-									type={item.inputType}
-									value={it.value}
-									checked={props.data?.[item.name] === it}
-									data-bind={'crud.' + item.name}
-								/>
-								{it.label as 'safe'}
-							</label>
-						))}
+							{item.inputType === 'checkbox' && (
+								<>
+									{!!props.issues?.[item.name + `[${idx}]`] && (
+										<p class="label text-error" safe>
+											{props.issues[item.name + `[${idx}]`]}
+										</p>
+									)}
+								</>
+							)}
+							{item.inputType === 'radio' && (
+								<>
+									{!!props.issues?.[item.name] && (
+										<p class="label text-error" safe>
+											{props.issues[item.name]}
+										</p>
+									)}
+								</>
+							)}
+						</>
+					))}
 					{!!item.description && (
 						<p class="label whitespace-normal" safe>
 							{item.description}
-						</p>
-					)}
-					{!!props.issues?.[item.name] && (
-						<p class="label text-error" safe>
-							{props.issues[item.name]}
 						</p>
 					)}
 				</fieldset>
@@ -129,7 +126,7 @@ export default function formLayout(props: {
 		<div
 			class="flex flex-col gap-4"
 			data-signals={ts`{
-        crud: {}
+        crud: ${JSON.stringify(props.data)}
       }`}
 		>
 			{inner as 'safe'}

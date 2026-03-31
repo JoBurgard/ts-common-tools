@@ -66,12 +66,14 @@ type CrudProps<
 > = CrudPropsBase<DataCreate, DataUpdate, ListItem> &
 	(
 		| {
-				formLayout: Layout;
+				createFormLayout: Layout;
+				updateFormLayout: Layout;
 				createView?: undefined;
 				updateView?: undefined;
 		  }
 		| {
-				formLayout?: undefined;
+				createFormLayout?: undefined;
+				updateFormLayout?: undefined;
 				createView?: ComponentView;
 				updateView: ComponentView;
 		  }
@@ -116,7 +118,7 @@ export function crudCreate<
 		// values.
 		return (
 			<>
-				{!props.formLayout && !props.createView ? (
+				{!props.createFormLayout && !props.createView ? (
 					<button
 						type="button"
 						class="btn btn-primary"
@@ -187,11 +189,11 @@ export function crudCreate<
 		.get(
 			'/create',
 			({ user, status }) => {
-				if (props.formLayout) {
+				if (props.createFormLayout) {
 					return (
 						<App user={user}>
 							<FormEdit prefix={props.prefix} type="create">
-								<FormLayout layout={props.formLayout}></FormLayout>
+								<FormLayout layout={props.createFormLayout}></FormLayout>
 							</FormEdit>
 						</App>
 					);
@@ -217,7 +219,7 @@ export function crudCreate<
 		.post(
 			'/create',
 			async function* ({ user, request }) {
-				if (!props.formLayout && !props.createView) {
+				if (!props.createFormLayout && !props.createView) {
 					// In this case createProcess should create an entry with default placeholder values
 					try {
 						let result = props.createProcess({ data: {} as DataCreate, user, request });
@@ -257,13 +259,13 @@ export function crudCreate<
 					}
 				}
 
-				if (props.formLayout) {
+				if (props.createFormLayout) {
 					yield dstar.patchElements(
 						(
 							<div id="morph">
 								<FormEdit prefix={props.prefix} errorMessage={errorMessage} type="create">
 									<FormLayout
-										layout={props.formLayout}
+										layout={props.createFormLayout}
 										data={data as Record<string, unknown>}
 										issues={data instanceof type.errors ? data.flatProblemsByPath : undefined}
 									></FormLayout>
@@ -303,11 +305,11 @@ export function crudCreate<
 						return status(404);
 					}
 
-					if (props.formLayout) {
+					if (props.updateFormLayout) {
 						return (
 							<App user={user}>
 								<FormEdit prefix={props.prefix} type="update" id={id}>
-									<FormLayout layout={props.formLayout} data={result}></FormLayout>
+									<FormLayout layout={props.updateFormLayout} data={result}></FormLayout>
 								</FormEdit>
 							</App>
 						);
@@ -338,7 +340,7 @@ export function crudCreate<
 				if (!raw.ok) {
 					return ERROR_MESSAGE_GENERIC;
 				}
-				const data = props.createSchema(raw.signals?.crud ?? {});
+				const data = props.updateSchema(raw.signals?.crud ?? {});
 
 				let formData: Record<string, unknown> = {};
 
@@ -360,8 +362,9 @@ export function crudCreate<
 						errorMessage = ERROR_MESSAGE_GENERIC;
 					}
 				}
+				console.log(data.flatProblemsByPath);
 
-				if (props.formLayout) {
+				if (props.updateFormLayout) {
 					yield dstar.patchElements(
 						(
 							<div id="morph">
@@ -373,7 +376,7 @@ export function crudCreate<
 									id={id}
 								>
 									<FormLayout
-										layout={props.formLayout}
+										layout={props.updateFormLayout}
 										data={formData}
 										issues={data instanceof type.errors ? data.flatProblemsByPath : undefined}
 									></FormLayout>
