@@ -20,7 +20,7 @@ export type Layout = Array<
 			name: string;
 			label: string;
 			description?: string;
-			options: string[];
+			options: { label: string; value: string }[];
 			validation: type;
 	  }
 >;
@@ -72,18 +72,39 @@ export default function formLayout(props: {
 					<legend class="fieldset-legend" safe>
 						{item.label}
 					</legend>
-					{item.options.map((it) => (
-						<input
-							class="input w-full"
-							name={item.name}
-							type={item.inputType}
-							value={it}
-							checked={props.data?.[item.name] === it}
-							data-bind={'crud.' + item.name}
-						/>
-					))}
+					{item.inputType === 'checkbox' && (
+						<div {...{ ['data-signals:crud.' + item.name]: '[]' }}></div>
+					)}
+					{item.inputType === 'checkbox' &&
+						item.options.map((it) => (
+							<label class="label">
+								<input
+									class="checkbox"
+									name={item.name}
+									type={item.inputType}
+									value={it.value}
+									checked={props.data?.[item.name] === it}
+									data-bind={'crud.' + item.name}
+								/>
+								{it.label as 'safe'}
+							</label>
+						))}
+					{item.inputType === 'radio' &&
+						item.options.map((it) => (
+							<label class="label">
+								<input
+									class="radio"
+									name={item.name}
+									type={item.inputType}
+									value={it.value}
+									checked={props.data?.[item.name] === it}
+									data-bind={'crud.' + item.name}
+								/>
+								{it.label as 'safe'}
+							</label>
+						))}
 					{!!item.description && (
-						<p class="label" safe>
+						<p class="label whitespace-normal" safe>
 							{item.description}
 						</p>
 					)}
@@ -112,6 +133,14 @@ export default function formLayout(props: {
       }`}
 		>
 			{inner as 'safe'}
+			<script
+				type="module"
+				src="/public/dist/ext/ts-common-tools/components/mayu-options-checkbox.js"
+			></script>
+			<script
+				type="module"
+				src="/public/dist/ext/ts-common-tools/components/mayu-options-radio.js"
+			></script>
 		</div>
 	);
 }
