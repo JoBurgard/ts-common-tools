@@ -1,5 +1,9 @@
 import type Elysia from 'elysia';
 
+/**
+ * Adds CSRF Protection via the 'Sec-Fetch-Site' header.
+ * @see https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Sec-Fetch-Site
+ */
 export function csrfProtection() {
 	return (app: Elysia) =>
 		app
