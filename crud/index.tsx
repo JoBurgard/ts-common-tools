@@ -266,7 +266,11 @@ export function crudCreate<
 								<FormEdit prefix={props.prefix} errorMessage={errorMessage} type="create">
 									<FormLayout
 										layout={props.createFormLayout}
-										data={data as Record<string, unknown>}
+										data={
+											data instanceof type.errors
+												? (raw.signals?.crud ?? ({} as any))
+												: (data as Record<string, unknown>)
+										}
 										issues={data instanceof type.errors ? data.flatProblemsByPath : undefined}
 									></FormLayout>
 								</FormEdit>
@@ -278,13 +282,18 @@ export function crudCreate<
 						(
 							<div id="morph">
 								<props.createView
-									data={data as Record<string, unknown>}
+									data={
+										data instanceof type.errors
+											? (raw.signals?.crud ?? ({} as any))
+											: (data as Record<string, unknown>)
+									}
 									issues={data instanceof type.errors ? data.flatProblemsByPath : undefined}
 								></props.createView>
 							</div>
 						) as string,
 					);
 				}
+				triggerUpdate();
 			},
 			{
 				auth: true,
@@ -342,7 +351,7 @@ export function crudCreate<
 				}
 				const data = props.updateSchema(raw.signals?.crud ?? {});
 
-				let formData: Record<string, unknown> = {};
+				let formData: Record<string, unknown>;
 
 				let errorMessage: string | undefined;
 				let successMessage: string | undefined;
@@ -361,8 +370,9 @@ export function crudCreate<
 						console.trace(error);
 						errorMessage = ERROR_MESSAGE_GENERIC;
 					}
+				} else {
+					formData = raw.signals?.crud as Record<string, unknown>;
 				}
-				console.log(data.flatProblemsByPath);
 
 				if (props.updateFormLayout) {
 					yield dstar.patchElements(
@@ -390,6 +400,8 @@ export function crudCreate<
 				} else {
 					yield sendToast({ type: 'success', message: 'Saved' });
 				}
+
+				triggerUpdate();
 			},
 			{
 				auth: true,
