@@ -72,6 +72,9 @@ export default function formLayout(props: {
 					<legend class="fieldset-legend" safe>
 						{item.label}
 					</legend>
+					{item.inputType === 'checkbox' && (
+						<div {...{ ['data-signals:crud.' + item.name + '__ifmissing']: '[]' }}></div>
+					)}
 					{item.options.map((it, idx) => (
 						<>
 							<label class="label">
@@ -94,17 +97,17 @@ export default function formLayout(props: {
 									)}
 								</>
 							)}
-							{item.inputType === 'radio' && (
-								<>
-									{!!props.issues?.[item.name] && (
-										<p class="label text-error" safe>
-											{props.issues[item.name]}
-										</p>
-									)}
-								</>
-							)}
 						</>
 					))}
+					{item.inputType === 'radio' && (
+						<>
+							{!!props.issues?.[item.name] && (
+								<p class="label text-error" safe>
+									{props.issues[item.name]}
+								</p>
+							)}
+						</>
+					)}
 					{!!item.description && (
 						<p class="label whitespace-normal" safe>
 							{item.description}
