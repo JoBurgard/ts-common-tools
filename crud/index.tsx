@@ -93,19 +93,22 @@ export function crudCreate<
 		...props.listColumns,
 		{
 			title: '',
+			css: 'w-[1px]',
 			getValue: () => '',
 			component: (componentProps) => {
 				return (
 					<div class="flex gap-2">
-						<a class="link" href={`/${props.prefix}/${componentProps.row?.id}`}>
-							Bearbeiten
+						<a class="btn btn-xs btn-secondary" href={`/${props.prefix}/${componentProps.row?.id}`}>
+							<span class="i-[mdi--pencil]"></span>
+							Edit
 						</a>
 						<button
-							class="link"
+							class="btn btn-xs btn-secondary"
 							type="button"
 							data-on:click={`@delete('/${props.prefix}/${componentProps.row?.id}')`}
 						>
-							Löschen
+							<span class="i-[mdi--delete]"></span>
+							Delete
 						</button>
 					</div>
 				);
@@ -117,23 +120,27 @@ export function crudCreate<
 		// If not createView is passed, then we assume, that an item will be created with default
 		// values.
 		return (
-			<>
-				{!props.createFormLayout && !props.createView ? (
-					<button
-						type="button"
-						class="btn btn-primary"
-						data-on:click={`@post('/${props.prefix}/create')`}
-					>
-						Create
-					</button>
-				) : (
-					<a href={`/${props.prefix}/create`} class="btn btn-primary">
-						Create
-					</a>
-				)}
+			<div>
+				<div class="mb-4">
+					{!props.createFormLayout && !props.createView ? (
+						<button
+							type="button"
+							class="btn btn-primary"
+							data-on:click={`@post('/${props.prefix}/create')`}
+						>
+							<span class="i-[mdi--plus]"></span>
+							Create
+						</button>
+					) : (
+						<a href={`/${props.prefix}/create`} class="btn btn-primary">
+							<span class="i-[mdi--plus]"></span>
+							Create
+						</a>
+					)}
+				</div>
 				<Table data={props.listProcess()} columns={listColumns}></Table>
 				<div data-init={`@get('/${props.prefix}/list/sse')`}></div>
-			</>
+			</div>
 		);
 	}
 
@@ -465,7 +472,6 @@ function FormEdit(props: PropsWithChildren<FormEditProps>) {
 					}
 				>
 					{props.children as 'safe'}
-					<pre data-json-signals></pre>
 					<div class="mt-6 flex justify-end">
 						<button class="btn btn-primary">{props.type === 'create' ? 'Create' : 'Save'}</button>
 					</div>
