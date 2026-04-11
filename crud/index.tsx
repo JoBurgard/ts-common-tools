@@ -155,8 +155,12 @@ export function crudCreate<
 		})
 		.get(
 			'/list',
-			({ user }) => {
-				return <App user={user}>{renderList(props)}</App>;
+			({ user, path }) => {
+				return (
+					<App user={user} path={path}>
+						{renderList(props)}
+					</App>
+				);
 			},
 			{
 				auth: true,
@@ -195,10 +199,10 @@ export function crudCreate<
 		)
 		.get(
 			'/create',
-			({ user, status }) => {
+			({ user, path, status }) => {
 				if (props.createFormLayout) {
 					return (
-						<App user={user}>
+						<App user={user} path={path}>
 							<FormEdit prefix={props.prefix} type="create">
 								<FormLayout layout={props.createFormLayout}></FormLayout>
 							</FormEdit>
@@ -211,7 +215,7 @@ export function crudCreate<
 				}
 
 				return (
-					<App user={user}>
+					<App user={user} path={path}>
 						<props.createView></props.createView>
 					</App>
 				);
@@ -311,7 +315,7 @@ export function crudCreate<
 		)
 		.get(
 			'/:id',
-			async ({ params: { id }, user, status, request }) => {
+			async ({ params: { id }, user, path, status, request }) => {
 				try {
 					let result = props.readProcess({ id, user, request });
 					if (result instanceof Promise) {
@@ -323,7 +327,7 @@ export function crudCreate<
 
 					if (props.updateFormLayout) {
 						return (
-							<App user={user}>
+							<App user={user} path={path}>
 								<FormEdit prefix={props.prefix} type="update" id={id}>
 									<FormLayout layout={props.updateFormLayout} data={result}></FormLayout>
 								</FormEdit>
@@ -331,7 +335,7 @@ export function crudCreate<
 						);
 					} else {
 						return (
-							<App user={user}>
+							<App user={user} path={path}>
 								<props.updateView data={result} id={id}></props.updateView>
 							</App>
 						);
