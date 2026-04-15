@@ -7,10 +7,20 @@ import { escapeHTML } from 'bun';
 export function htmlBuilderCreate() {
 	const result: string[] = [];
 
-	const html = (strings: readonly string[], ...values: (string | number | boolean | object)[]) => {
-		const escaped = values.map((it) => escapeHTML(it));
+	const html = (
+		strings: readonly string[],
+		...values: (string | number | boolean | RawString)[]
+	) => {
+		const escaped = values.map((it) => {
+			if (it instanceof RawString) {
+				return it.getValue();
+			}
+			return escapeHTML(it);
+		});
 		result.push(String.raw({ raw: strings }, ...escaped));
 	};
+
+	html.raw = htmlRaw;
 
 	const comp = (componentResult: string) => {
 		result.push(componentResult);
@@ -29,6 +39,19 @@ export function htmlBuilderCreate() {
 	};
 }
 
+class RawString {
+	constructor(public value: string) {
+		this.value = value;
+	}
+
+	getValue() {
+		return this.value;
+	}
+}
+
+function htmlRaw(value: string) {
+	return new RawString(value);
+}
 type HtmlBuilder = ReturnType<typeof htmlBuilderCreate>;
 
 type _Combine<T, K extends PropertyKey = T extends unknown ? keyof T : never> = T extends unknown
@@ -49,13 +72,14 @@ export function component<
 	Props = T extends { Props: Record<string, unknown> } ? T['Props'] : Record<never, unknown>,
 	Slots = T extends { Slots: string } ? T['Slots'] : never,
 >() {
-	const builder = htmlBuilderCreate();
 	return (
 		compFn: (
 			data: {
 				props: Props;
-				children: string;
-				slots: Prettify<Combine<Slots extends string ? { [k in Slots]?: string } : undefined>>;
+				children: { (): void; value: string };
+				slots: Prettify<
+					Combine<Slots extends string ? { [k in Slots]?: { (): void; value: string } } : undefined>
+				>;
 			},
 			builder: HtmlBuilder,
 		) => void,
@@ -67,6 +91,7 @@ export function component<
 				slots: (name: Slots extends string ? Slots : never) => HtmlBuilder;
 			}) => void,
 		) => {
+			const builder = htmlBuilderCreate();
 			const chld = htmlBuilderCreate();
 			const slotsMap = new Map<Slots, HtmlBuilder>();
 			const slotsFn = (name: Slots) =>
@@ -74,13 +99,23 @@ export function component<
 
 			childSlotFn?.({ chld, slots: slotsFn });
 
-			const children = chld.renderHtml();
-			const slotsData: Record<string, string> = {};
+			const chldVal = chld.renderHtml();
+			const children = () => builder.c(chldVal);
+			children.value = chldVal;
+
+			const slotsData: Record<string, { (): void; value: string }> = {};
+
 			if (slotsMap.size > 0) {
 				for (const [key, value] of slotsMap.entries()) {
-					slotsData[key as string] = value.renderHtml();
+					const slotVal = value.renderHtml();
+					const slotFn = () => {
+						builder.c(slotVal);
+					};
+					slotFn.value = slotVal;
+					slotsData[key as string] = slotFn;
 				}
 			}
+
 			compFn({ props, children, slots: slotsData as any }, builder);
 			return builder.renderHtml();
 		};
