@@ -99,7 +99,7 @@ export class SafePathResolver {
 	#basePath;
 
 	constructor(basePath: string) {
-		this.#basePath = basePath;
+		this.#basePath = path.normalize(basePath);
 	}
 
 	get basePath() {
@@ -111,7 +111,7 @@ export class SafePathResolver {
 	 * @throws When trying to escape from the base dir
 	 */
 	resolveSafe(...paths: string[]) {
-		const resolved = path.resolve(this.#basePath, ...paths);
+		const resolved = path.join(this.#basePath, ...paths);
 
 		if (!resolved.startsWith(this.#basePath)) {
 			throw new Error(
