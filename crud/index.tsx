@@ -389,13 +389,7 @@ export function crudCreate<
 					yield dstar.patchElements(
 						(
 							<div id="morph">
-								<FormEdit
-									prefix={props.prefix}
-									successMessage={successMessage}
-									errorMessage={errorMessage}
-									type="update"
-									id={id}
-								>
+								<FormEdit prefix={props.prefix} errorMessage={errorMessage} type="update" id={id}>
 									<FormLayout
 										layout={props.updateFormLayout}
 										data={formData}
@@ -406,6 +400,10 @@ export function crudCreate<
 						) as string,
 						{ mode: 'replace' },
 					);
+
+					if (successMessage) {
+						yield sendToast({ type: 'success', message: successMessage });
+					}
 				} else if (data instanceof type.errors) {
 					yield dstar.patchSignals({ crudIssues: data.flatProblemsByPath });
 				} else {
@@ -449,7 +447,7 @@ export function crudCreate<
 		);
 }
 
-type FormEditProps = { prefix: string; successMessage?: string; errorMessage?: string } & (
+type FormEditProps = { prefix: string; errorMessage?: string } & (
 	| { type: 'create' }
 	| { type: 'update'; id: string }
 );
@@ -457,11 +455,6 @@ function FormEdit(props: PropsWithChildren<FormEditProps>) {
 	return (
 		<div class="card w-120 bg-base-200">
 			<div class="card-body">
-				{!!props?.successMessage && (
-					<div role="alert" class="alert alert-success">
-						<p safe>{props.successMessage}</p>
-					</div>
-				)}
 				{!!props?.errorMessage && (
 					<div role="alert" class="alert alert-error">
 						<p safe>{props.errorMessage}</p>
