@@ -43,9 +43,9 @@ export function createPermissionsSystem<
 	};
 
 	// for elysia routes
-	const routeCheckPermission = (
-		subject: Parameters<typeof allowedTo>[1],
-		action: Parameters<typeof allowedTo>[2],
+	const routeCheckPermission = <S extends Parameters<typeof allowedTo>[1]>(
+		subject: S,
+		action: Parameters<typeof allowedTo<S>>[2],
 	) => {
 		return (ctx: Context & { user: { roles: string[] } }) => {
 			if (ctx.user.roles.includes('superadmin')) {
