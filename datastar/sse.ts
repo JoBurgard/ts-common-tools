@@ -3,12 +3,12 @@ function send({
 	eventType,
 	dataLines,
 	eventId,
-	retryDurationMs,
+	retryDuration,
 }: {
 	eventType: EventType;
 	dataLines: string[];
 	eventId?: string;
-	retryDurationMs?: number;
+	retryDuration?: number;
 }): string {
 	const result: string[] = [`event: ${eventType}\n`];
 
@@ -16,8 +16,8 @@ function send({
 		result.push(`id: ${eventId}\n`);
 	}
 
-	if (retryDurationMs && retryDurationMs !== 1000) {
-		result.push(`retry: ${retryDurationMs}\n`);
+	if (retryDuration && retryDuration !== 1000) {
+		result.push(`retry: ${retryDuration}\n`);
 	}
 
 	for (const line of dataLines) {
@@ -46,13 +46,13 @@ function patchElements(
 		selector,
 		useViewTransition,
 		eventId,
-		retryDurationMs,
+		retryDuration,
 	}: {
 		mode?: PatchMode;
 		selector?: string;
 		useViewTransition?: boolean;
 		eventId?: string;
-		retryDurationMs?: number;
+		retryDuration?: number;
 	} = {},
 ): string {
 	const dataLines: string[] = [];
@@ -71,7 +71,7 @@ function patchElements(
 
 	dataLines.push(...elements.split('\n').map((it) => `elements ${it}`));
 
-	return send({ eventType: 'datastar-patch-elements', eventId, retryDurationMs, dataLines });
+	return send({ eventType: 'datastar-patch-elements', eventId, retryDuration, dataLines });
 }
 
 function patchSignals(
@@ -79,11 +79,11 @@ function patchSignals(
 	{
 		onlyIfMissing,
 		eventId,
-		retryDurationMs,
+		retryDuration,
 	}: {
 		onlyIfMissing?: boolean;
 		eventId?: string;
-		retryDurationMs?: number;
+		retryDuration?: number;
 	} = {},
 ): string {
 	const dataLines: string[] = [];
@@ -94,7 +94,7 @@ function patchSignals(
 
 	dataLines.push(`signals ${typeof signals === 'string' ? signals : JSON.stringify(signals)}`);
 
-	return send({ eventType: 'datastar-patch-signals', eventId, retryDurationMs, dataLines });
+	return send({ eventType: 'datastar-patch-signals', eventId, retryDuration, dataLines });
 }
 
 function executeScript(
@@ -103,12 +103,12 @@ function executeScript(
 		autoRemove,
 		attributes,
 		eventId,
-		retryDurationMs,
+		retryDuration,
 	}: {
 		autoRemove?: boolean;
 		attributes?: string[];
 		eventId?: string;
-		retryDurationMs?: number;
+		retryDuration?: number;
 	} = {},
 ): string {
 	const dataLines: string[] = [
@@ -125,7 +125,7 @@ function executeScript(
 			].join(''),
 	];
 
-	return send({ eventType: 'datastar-patch-elements', eventId, retryDurationMs, dataLines });
+	return send({ eventType: 'datastar-patch-elements', eventId, retryDuration, dataLines });
 }
 
 function redirect(location: string) {
