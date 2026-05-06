@@ -133,14 +133,6 @@ export default function formLayout(props: {
       }`}
 		>
 			{inner as 'safe'}
-			<script
-				type="module"
-				src="/public/dist/ext/ts-common-tools/components/mayu-options-checkbox.js"
-			></script>
-			<script
-				type="module"
-				src="/public/dist/ext/ts-common-tools/components/mayu-options-radio.js"
-			></script>
 		</div>
 	);
 }
