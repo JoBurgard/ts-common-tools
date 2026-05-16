@@ -182,7 +182,6 @@ export function crudCreate<
 				try {
 					for await (const _ of on(events, 'update', { signal: controller.signal })) {
 						yield dstar.patchElements((<div id="morph">{renderList(props)}</div>) as string);
-						yield sendToast({ message: new Date().toString() });
 					}
 				} catch (err: any) {
 					if (err.code !== 'ABORT_ERR') {
@@ -247,6 +246,7 @@ export function crudCreate<
 						console.trace(error);
 					}
 
+					triggerUpdate();
 					return;
 				}
 
