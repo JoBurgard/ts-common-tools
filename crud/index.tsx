@@ -14,7 +14,7 @@ import Table, { type Columns } from './table';
 
 const ERROR_MESSAGE_GENERIC = 'Something went wrong. Please contact the support.';
 
-type User = {
+export type CrudUser = {
 	id: string;
 };
 
@@ -37,25 +37,25 @@ type CrudPropsBase<
 	createSchema: Type<DataCreate>;
 	createProcess: (props: {
 		data: DataCreate;
-		user: User;
+		user: CrudUser;
 		request: Request;
 	}) => MaybePromise<void | { id: string }>;
 	createPermission?: ReturnType<typeof createSubjectAction>;
 	readProcess: (props: {
 		id: string;
-		user: User;
+		user: CrudUser;
 		request: Request;
 	}) => MaybePromise<Record<string, unknown> | undefined>;
 	readPermission?: ReturnType<typeof createSubjectAction>;
 	updateSchema: Type<DataUpdate>;
 	updateProcess: (props: {
 		data: DataUpdate;
-		user: User;
+		user: CrudUser;
 		id: string;
 		request: Request;
 	}) => MaybePromise<void>;
 	updatePermission?: ReturnType<typeof createSubjectAction>;
-	deleteProcess: (props: { user: User; id: string; request: Request }) => MaybePromise<void>;
+	deleteProcess: (props: { user: CrudUser; id: string; request: Request }) => MaybePromise<void>;
 	deletePermission?: ReturnType<typeof createSubjectAction>;
 };
 
