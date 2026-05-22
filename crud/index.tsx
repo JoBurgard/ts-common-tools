@@ -236,7 +236,7 @@ export function crudCreate<
 						if (result instanceof Promise) {
 							result = await result;
 						}
-						if (result?.id) {
+						if (result?.id !== undefined) {
 							yield dstar.redirect(`/${props.prefix}/${result.id}`);
 						} else {
 							yield dstar.redirect(`/${props.prefix}/list`);
@@ -263,7 +263,11 @@ export function crudCreate<
 						if (result instanceof Promise) {
 							result = await result;
 						}
-						yield dstar.redirect(`/${props.prefix}/list`);
+						if (result?.id !== undefined) {
+							yield dstar.redirect(`/${props.prefix}/${result.id}`);
+						} else {
+							yield dstar.redirect(`/${props.prefix}/list`);
+						}
 					} catch (error) {
 						errorMessage = ERROR_MESSAGE_GENERIC;
 						console.trace(error);
