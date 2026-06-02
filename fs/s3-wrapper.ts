@@ -1,7 +1,7 @@
 import { Glob, type S3Client } from 'bun';
+import { lstat, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { Result, type ResultError, type ResultOk } from '../utils/result';
-import { rm } from 'node:fs/promises';
 
 type Props =
 	| {
@@ -15,6 +15,8 @@ type Props =
 	  };
 
 const listGlob = new Glob('**/*');
+
+type ListResultWithMeta = { name: string; modified: number | undefined }[];
 
 export function S3WrapperCreate(props: Props) {
 	return {
@@ -62,10 +64,39 @@ export function S3WrapperCreate(props: Props) {
 				return Result.error(String(err));
 			}
 		},
+		async listWithMeta(
+			dirPath: string,
+		): Promise<ResultOk<ListResultWithMeta> | ResultError<string>> {
+			try {
+				if (props.localFs) {
+					const fullPath = path.join(props.localBasePath, dirPath);
+					const res: ListResultWithMeta = [];
+					for await (const name of listGlob.scan(path.join(props.localBasePath, dirPath))) {
+						const stat = await lstat(path.join(fullPath, name));
+						res.push({ name, modified: stat.mtimeMs });
+					}
+					return Result.ok(res);
+				} else {
+					const fullPath = path.join(props.s3BasePath, dirPath);
+					const res = await props.s3.list({ prefix: fullPath });
+					if (!res.contents) {
+						return Result.ok([]);
+					}
+					return Result.ok(
+						res.contents.map((it) => ({
+							name: it.key.replace(fullPath + '/', ''),
+							modified: it.lastModified ? new Date(it.lastModified).getTime() : undefined,
+						})),
+					);
+				}
+			} catch (err) {
+				return Result.error(String(err));
+			}
+		},
 		async deleteFile(filePath: string): Promise<ResultOk<void> | ResultError<string>> {
 			try {
 				if (props.localFs) {
-					await Bun.file(filePath).delete();
+					await Bun.file(path.join(props.localBasePath, filePath)).delete();
 					return Result.ok();
 				} else {
 					const fullPath = path.join(props.s3BasePath, filePath);
@@ -73,6 +104,7 @@ export function S3WrapperCreate(props: Props) {
 					return Result.ok();
 				}
 			} catch (err) {
+				console.error(err);
 				return Result.error(String(err));
 			}
 		},
