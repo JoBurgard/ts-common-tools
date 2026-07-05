@@ -105,7 +105,7 @@ export function crudCreate<
 						<button
 							class="btn btn-xs btn-secondary"
 							type="button"
-							data-on:click={`@delete('/${props.prefix}/${componentProps.row?.id}')`}
+							data-on:click={`confirm('Do you really want to delete?') && @delete('/${props.prefix}/${componentProps.row?.id}')`}
 						>
 							<span class="i-[mdi--delete]"></span>
 							Delete
