@@ -31,7 +31,9 @@ type CrudPropsBase<
 > = {
 	prefix: string;
 	title: string;
-	listProcess: () => ListItem[];
+	listProcess: (p: {
+		search: { offset: number; perPage: number; filters?: Record<string, unknown> };
+	}) => { data: ListItem[]; meta: { itemTotal: number } };
 	listColumns: Columns<ListItem>;
 	listPermission?: ReturnType<typeof createSubjectAction>;
 	createSchema: Type<DataCreate>;
@@ -116,8 +118,15 @@ export function crudCreate<
 		},
 	];
 
-	function renderList(props: Props) {
-		// If not createView is passed, then we assume, that an item will be created with default
+	function renderList(
+		props: Props,
+		search: { page: number; perPage: number; params: URLSearchParams },
+	) {
+		const offset = (search.page - 1) * search.perPage;
+		const res = props.listProcess({ search: { offset, perPage: search.perPage } });
+		const listData = res.data;
+		const pageTotal = Math.ceil(res.meta.itemTotal / search.perPage);
+		// If no createView is passed, then we assume, that an item will be created with default
 		// values.
 		return (
 			<div>
@@ -138,7 +147,20 @@ export function crudCreate<
 						</a>
 					)}
 				</div>
-				<Table data={props.listProcess()} columns={listColumns}></Table>
+				<Table data={listData} columns={listColumns}></Table>
+				<div class="mt-4 flex items-center gap-6">
+					<Pages
+						page={search.page}
+						pageTotal={pageTotal}
+						url={`/${props.prefix}/list`}
+						searchParams={search.params}
+					></Pages>
+					<Position
+						itemCount={res.data.length}
+						itemTotal={res.meta.itemTotal}
+						offset={offset}
+					></Position>
+				</div>
 				<div data-init={`@get('/${props.prefix}/list/sse')`}></div>
 			</div>
 		);
@@ -155,10 +177,20 @@ export function crudCreate<
 		})
 		.get(
 			'/list',
-			({ user, path }) => {
+			({ user, path, query, status }) => {
+				const paginationParams = QueryPaginationSchema(query);
+
+				if (paginationParams instanceof type.errors) {
+					return status(400);
+				}
+
 				return (
 					<App user={user} path={path}>
-						{renderList(props)}
+						{renderList(props, {
+							page: paginationParams.page,
+							perPage: paginationParams.perPage,
+							params: new URLSearchParams(query),
+						})}
 					</App>
 				);
 			},
@@ -478,6 +510,59 @@ function FormEdit(props: PropsWithChildren<FormEditProps>) {
 					</div>
 				</form>
 			</div>
+		</div>
+	);
+}
+
+const PER_PAGE = 25;
+
+const QueryPaginationSchema = type({
+	page: type('string.integer')
+		.pipe((it) => Math.max(1, parseInt(it)))
+		.default('1'),
+	perPage: type('string.integer')
+		.pipe((it) => Math.max(1, Math.min(parseInt(it), 100)))
+		.default(String(PER_PAGE)),
+});
+
+function Pages(p: { page: number; pageTotal: number; url: string; searchParams: URLSearchParams }) {
+	// TODO first page can omit the page parameter
+	p.searchParams.set('page', String(Math.max(p.page - 1, 1)));
+	const prevP = p.searchParams.toString();
+
+	p.searchParams.set('page', String(p.page));
+	const currP = p.searchParams.toString();
+
+	p.searchParams.set('page', String(Math.min(p.pageTotal, p.page + 1)));
+	const nextP = p.searchParams.toString();
+
+	return (
+		<div class="join tabular-nums">
+			<a
+				class={['btn join-item', p.page < 2 && 'btn-disabled'].filter(Boolean).join(' ')}
+				href={p.url + '?' + prevP}
+			>
+				«
+			</a>
+			<a class="btn join-item" href={p.url + '?' + currP}>
+				{p.page}
+			</a>
+			<a
+				class={['btn join-item', p.page > p.pageTotal - 1 && 'btn-disabled']
+					.filter(Boolean)
+					.join(' ')}
+				href={p.url + '?' + nextP}
+			>
+				»
+			</a>
+		</div>
+	);
+}
+
+function Position(p: { offset: number; itemCount: number; itemTotal: number }) {
+	return (
+		<div class="tabular-nums">
+			Showing {p.offset + 1} - {Math.min(p.itemTotal, p.offset + p.itemCount)} of {p.itemTotal}
 		</div>
 	);
 }
