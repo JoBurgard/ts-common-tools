@@ -11,6 +11,13 @@ import EventEmitter, { on } from 'node:events';
 import type { MaybePromise } from '../types';
 import FormLayout, { type Layout } from './form-layout';
 import Table, { type Columns } from './table';
+import {
+	Pages,
+	paginationProcess,
+	Position,
+	type ListResultMeta,
+	type Pagination,
+} from './pagination';
 
 const ERROR_MESSAGE_GENERIC = 'Something went wrong. Please contact the support.';
 
@@ -31,9 +38,10 @@ type CrudPropsBase<
 > = {
 	prefix: string;
 	title: string;
-	listProcess: (p: {
-		search: { offset: number; perPage: number; filters?: Record<string, unknown> };
-	}) => { data: ListItem[]; meta: { itemTotal: number } };
+	listProcess: (p: { pagination: Pagination }) => {
+		data: ListItem[];
+		meta: ListResultMeta;
+	};
 	listColumns: Columns<ListItem>;
 	listPermission?: ReturnType<typeof createSubjectAction>;
 	createSchema: Type<DataCreate>;
@@ -118,14 +126,10 @@ export function crudCreate<
 		},
 	];
 
-	function renderList(
-		props: Props,
-		search: { page: number; perPage: number; params: URLSearchParams },
-	) {
-		const offset = (search.page - 1) * search.perPage;
-		const res = props.listProcess({ search: { offset, perPage: search.perPage } });
-		const listData = res.data;
-		const pageTotal = Math.ceil(res.meta.itemTotal / search.perPage);
+	function renderList(props: Props, pagination: Pagination) {
+		const res = props.listProcess({ pagination });
+		const searchParamsText = pagination.searchParams.toString();
+
 		// If no createView is passed, then we assume, that an item will be created with default
 		// values.
 		return (
@@ -147,21 +151,14 @@ export function crudCreate<
 						</a>
 					)}
 				</div>
-				<Table data={listData} columns={listColumns}></Table>
+				<Table data={res.data} columns={listColumns}></Table>
 				<div class="mt-4 flex items-center gap-6">
-					<Pages
-						page={search.page}
-						pageTotal={pageTotal}
-						url={`/${props.prefix}/list`}
-						searchParams={search.params}
-					></Pages>
-					<Position
-						itemCount={res.data.length}
-						itemTotal={res.meta.itemTotal}
-						offset={offset}
-					></Position>
+					<Pages pagination={pagination} listResultMeta={res.meta}></Pages>
+					<Position pagination={pagination} listResultMeta={res.meta}></Position>
 				</div>
-				<div data-init={`@get('/${props.prefix}/list/sse')`}></div>
+				<div
+					data-init={`@get('/${props.prefix}/list/sse${searchParamsText ? '?' + searchParamsText : ''}')`}
+				></div>
 			</div>
 		);
 	}
@@ -178,19 +175,17 @@ export function crudCreate<
 		.get(
 			'/list',
 			({ user, path, query, status }) => {
-				const paginationParams = QueryPaginationSchema(query);
+				const paginationRes = paginationProcess({ query, path });
 
-				if (paginationParams instanceof type.errors) {
-					return status(400);
+				if (!paginationRes.ok) {
+					return status(400, paginationRes.error);
 				}
+
+				const search = paginationRes.value;
 
 				return (
 					<App user={user} path={path}>
-						{renderList(props, {
-							page: paginationParams.page,
-							perPage: paginationParams.perPage,
-							params: new URLSearchParams(query),
-						})}
+						{renderList(props, search)}
 					</App>
 				);
 			},
@@ -203,7 +198,15 @@ export function crudCreate<
 		)
 		.get(
 			'/list/sse',
-			async function* ({ request }) {
+			async function* ({ path, request, status, query }) {
+				const paginationRes = paginationProcess({ query, path });
+
+				if (!paginationRes.ok) {
+					return status(400, paginationRes.error);
+				}
+
+				const search = paginationRes.value;
+
 				const controller = new AbortController();
 
 				request.signal.addEventListener('abort', () => {
@@ -213,7 +216,9 @@ export function crudCreate<
 				// rerenders the page when an update event is emitted
 				try {
 					for await (const _ of on(events, 'update', { signal: controller.signal })) {
-						yield dstar.patchElements((<div id="morph">{renderList(props)}</div>) as string);
+						yield dstar.patchElements(
+							(<div id="morph">{renderList(props, search)}</div>) as string,
+						);
 					}
 				} catch (err: any) {
 					if (err.code !== 'ABORT_ERR') {
@@ -510,59 +515,6 @@ function FormEdit(props: PropsWithChildren<FormEditProps>) {
 					</div>
 				</form>
 			</div>
-		</div>
-	);
-}
-
-const PER_PAGE = 25;
-
-const QueryPaginationSchema = type({
-	page: type('string.integer')
-		.pipe((it) => Math.max(1, parseInt(it)))
-		.default('1'),
-	perPage: type('string.integer')
-		.pipe((it) => Math.max(1, Math.min(parseInt(it), 100)))
-		.default(String(PER_PAGE)),
-});
-
-function Pages(p: { page: number; pageTotal: number; url: string; searchParams: URLSearchParams }) {
-	// TODO first page can omit the page parameter
-	p.searchParams.set('page', String(Math.max(p.page - 1, 1)));
-	const prevP = p.searchParams.toString();
-
-	p.searchParams.set('page', String(p.page));
-	const currP = p.searchParams.toString();
-
-	p.searchParams.set('page', String(Math.min(p.pageTotal, p.page + 1)));
-	const nextP = p.searchParams.toString();
-
-	return (
-		<div class="join tabular-nums">
-			<a
-				class={['btn join-item', p.page < 2 && 'btn-disabled'].filter(Boolean).join(' ')}
-				href={p.url + '?' + prevP}
-			>
-				«
-			</a>
-			<a class="btn join-item" href={p.url + '?' + currP}>
-				{p.page}
-			</a>
-			<a
-				class={['btn join-item', p.page > p.pageTotal - 1 && 'btn-disabled']
-					.filter(Boolean)
-					.join(' ')}
-				href={p.url + '?' + nextP}
-			>
-				»
-			</a>
-		</div>
-	);
-}
-
-function Position(p: { offset: number; itemCount: number; itemTotal: number }) {
-	return (
-		<div class="tabular-nums">
-			Showing {p.offset + 1} - {Math.min(p.itemTotal, p.offset + p.itemCount)} of {p.itemTotal}
 		</div>
 	);
 }
