@@ -181,11 +181,11 @@ export function crudCreate<
 					return status(400, paginationRes.error);
 				}
 
-				const search = paginationRes.value;
+				const pagination = paginationRes.value;
 
 				return (
 					<App user={user} path={path}>
-						{renderList(props, search)}
+						{renderList(props, pagination)}
 					</App>
 				);
 			},
@@ -199,13 +199,16 @@ export function crudCreate<
 		.get(
 			'/list/sse',
 			async function* ({ path, request, status, query }) {
-				const paginationRes = paginationProcess({ query, path });
+				const paginationRes = paginationProcess({
+					query,
+					path: path.split('/').slice(0, -1).join('/'),
+				});
 
 				if (!paginationRes.ok) {
 					return status(400, paginationRes.error);
 				}
 
-				const search = paginationRes.value;
+				const pagination = paginationRes.value;
 
 				const controller = new AbortController();
 
@@ -217,7 +220,7 @@ export function crudCreate<
 				try {
 					for await (const _ of on(events, 'update', { signal: controller.signal })) {
 						yield dstar.patchElements(
-							(<div id="morph">{renderList(props, search)}</div>) as string,
+							(<div id="morph">{renderList(props, pagination)}</div>) as string,
 						);
 					}
 				} catch (err: any) {
