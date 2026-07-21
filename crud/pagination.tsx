@@ -2,7 +2,7 @@ import { type } from 'arktype';
 import { Result } from '../utils/result';
 import type { ResultOk, ResultError } from '../utils/result';
 
-export const PER_PAGE = 25;
+export const PER_PAGE = 20;
 
 export const QueryPaginationSchema = type({
 	page: type('string.integer')
@@ -34,6 +34,9 @@ export type ListResult<T extends unknown[]> = {
 export function paginationProcess(p: {
 	query: Record<string, string>;
 	path: string;
+	defaults?: {
+		perPage?: number;
+	};
 }): ResultOk<Pagination> | ResultError<Record<string, string[]>> {
 	const parsed = QueryPaginationSchema(p.query);
 
@@ -42,6 +45,10 @@ export function paginationProcess(p: {
 	}
 
 	const offset = (parsed.page - 1) * parsed.perPage;
+
+	if (p.defaults?.perPage !== undefined) {
+		parsed.perPage = p.defaults.perPage;
+	}
 
 	return Result.ok({ ...parsed, offset, searchParams: new URLSearchParams(p.query), url: p.path });
 }
