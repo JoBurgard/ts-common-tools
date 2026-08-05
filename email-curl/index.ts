@@ -1,8 +1,9 @@
-import { exec } from 'node:child_process';
+import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { Result } from '../utils/result';
+import { Result, type ResultError, type ResultOk } from '../utils/result';
 
-const execAsync = promisify(exec);
+const execAsync = promisify(execFile);
+const rgxFetchUid = /\(UID (\d+?)/;
 
 /**
  * Creates a system for interacting with an IMAP-Server.
@@ -14,32 +15,58 @@ export function imapClientCreate(p: {
 	user: string;
 	password: string;
 }) {
-	const cmd = async (urlEnd: string, serverCommand?: string) => {
-		let cmdString = `curl -u ${p.user}:${p.password} "imaps://${p.server}/${p.mailbox}${urlEnd}"`;
-		if (serverCommand) {
-			cmdString += ` -X "${serverCommand}"`;
+	const cmd = async (serverCommand: string) => {
+		try {
+			const result = await execAsync('curl', [
+				'-v',
+				'-sS',
+				`-u`,
+				`${p.user}:${p.password}`,
+				`imaps://${p.server}/${p.mailbox}`,
+				`-X`,
+				serverCommand,
+			]);
+			return Result.ok(result.stdout);
+		} catch (err: any) {
+			return Result.error(
+				(err?.stderr as string | undefined)?.trim() ??
+					'Failed to run curl command. Unexpected error.',
+			);
 		}
-		return await execAsync(cmdString);
 	};
 
-	const readOldest = async () => {
-		return Result.try(async () => await cmd(`;MAILINDEX=1`));
+	const readOldest = async (): Promise<
+		| ResultOk<{ uid: string; content: string } | null> // null if nothing is found
+		| ResultError<string>
+	> => {
+		const mailRes = await cmd(`FETCH 1 (UID BODY[])`);
+		if (!mailRes.ok) {
+			return mailRes;
+		}
+		const uid = rgxFetchUid.exec(mailRes.value)?.[1];
+		if (!uid) {
+			return Result.ok(null);
+		}
+		return Result.ok({
+			uid,
+			content: mailRes.value.replaceAll('\r\n', '\n').slice(mailRes.value.indexOf('\n')).trim(),
+		});
 	};
+
+	// readNewest -> SELECT ${p.mailbox} -> * 5 EXISTS -> extract number -> FETCH ${idx} UID
 
 	const move = async (p2: { uid: string; targetFolder: string }) => {
-		return Result.try(async () => await cmd(``, `UID MOVE ${p2.uid} ${p2.targetFolder}`));
+		return cmd(`UID MOVE ${p2.uid} ${p2.targetFolder}`);
 	};
 
 	const deleteOlderThanDays = async (days: number) => {
-		const listRes = await Result.try(
-			async () => await cmd(``, `SEARCH BEFORE $(date +'%d-%b-%Y' --date='${days} days ago)'`),
-		);
+		const listRes = await cmd(`UID SEARCH BEFORE $(date +'%d-%b-%Y' --date='${days} days ago')`);
 
 		if (!listRes.ok) {
 			return listRes;
 		}
 
-		const text = listRes.value.stdout;
+		const text = listRes.value;
 
 		return Result.try(async () => {
 			if (!text.startsWith('* SEARCH')) {
@@ -50,9 +77,9 @@ export function imapClientCreate(p: {
 
 			if (uids.length > 0) {
 				for (const uid of uids) {
-					await cmd(``, `STORE ${uid} +FLAGS (\\Deleted)`);
+					await cmd(`UID STORE ${uid} +FLAGS (\\Deleted)`);
 				}
-				await cmd(``, `EXPUNGE`);
+				await cmd(`EXPUNGE`);
 			}
 		});
 	};
