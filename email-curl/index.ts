@@ -17,15 +17,21 @@ export function imapClientCreate(p: {
 }) {
 	const cmd = async (serverCommand: string) => {
 		try {
-			const result = await execAsync('curl', [
-				'-v',
-				'-sS',
-				`-u`,
-				`${p.user}:${p.password}`,
-				`imaps://${p.server}/${p.mailbox}`,
-				`-X`,
-				serverCommand,
-			]);
+			const result = await execAsync(
+				'curl',
+				[
+					'-v',
+					'-sS',
+					`-u`,
+					`${p.user}:${p.password}`,
+					`imaps://${p.server}/${p.mailbox}`,
+					`-X`,
+					serverCommand,
+				],
+				{
+					maxBuffer: 50 * 1024 * 1024, // 50MiB
+				},
+			);
 			return Result.ok(result.stdout);
 		} catch (err: any) {
 			return Result.error(
@@ -49,7 +55,7 @@ export function imapClientCreate(p: {
 		}
 		return Result.ok({
 			uid,
-			content: mailRes.value.replaceAll('\r\n', '\n').slice(mailRes.value.indexOf('\n')).trim(),
+			content: mailRes.value.slice(mailRes.value.indexOf('\n')).trim(),
 		});
 	};
 
