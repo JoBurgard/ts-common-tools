@@ -4,6 +4,7 @@ import { Result, type ResultError, type ResultOk } from '../utils/result';
 
 const execAsync = promisify(execFile);
 const rgxFetchUid = /\(UID (\d+?)/;
+const rgxStatusMessagesCount = /MESSAGES (\d+)/;
 
 /**
  * Creates a system for interacting with an IMAP-Server.
@@ -20,7 +21,6 @@ export function imapClientCreate(p: {
 			const result = await execAsync(
 				'curl',
 				[
-					'-v',
 					'-sS',
 					`-u`,
 					`${p.user}:${p.password}`,
@@ -39,6 +39,22 @@ export function imapClientCreate(p: {
 					'Failed to run curl command. Unexpected error.',
 			);
 		}
+	};
+
+	const getMessagesCount = async (): Promise<ResultOk<number> | ResultError<string>> => {
+		const res = await cmd(`STATUS ${p.mailbox} (MESSAGES)`);
+		if (!res.ok) {
+			return res;
+		}
+		const countText = rgxStatusMessagesCount.exec(res.value)?.[1];
+		if (!countText) {
+			return Result.error('Failed to extract message count from server reply.');
+		}
+		const count = parseInt(countText);
+		if (isNaN(count)) {
+			return Result.error('Extracted count number was not a valid number.');
+		}
+		return Result.ok(count);
 	};
 
 	const readOldest = async (): Promise<
@@ -91,6 +107,8 @@ export function imapClientCreate(p: {
 	};
 
 	return {
+		mailbox: p.mailbox,
+		getMessagesCount,
 		readOldest,
 		move,
 		deleteOlderThanDays,
