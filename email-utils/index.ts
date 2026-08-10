@@ -35,3 +35,23 @@ export function emailSenderIsTrusted(emailHeaders: string, allowedList: RegExp[]
 
 	return false;
 }
+
+const rgxMailHeader = /(.*?): ((?:.|\s)*?)\n(?!\s)/g;
+export function emailHeadersToRecord(emailHeadersText: string): Record<string, string | string[]> {
+	const record: Record<string, string | string[]> = {};
+	let res: RegExpExecArray | null;
+	while ((res = rgxMailHeader.exec(emailHeadersText)) !== null) {
+		if (!res[1] || !res[2]) {
+			continue;
+		}
+		// When a key occurs more than once, we put it into an array
+		if (record[res[1]]) {
+			if (typeof record[res[1]] === 'string') {
+				record[res[1]] = [record[res[1]] as string];
+			}
+			(record[res[1]]! as string[]).push(res[2]);
+		}
+		record[res[1]] = res[2];
+	}
+	return record;
+}
