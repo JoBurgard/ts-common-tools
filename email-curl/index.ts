@@ -2,6 +2,9 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { Result, type ResultError, type ResultOk } from '../utils/result';
 
+// Imap wants the month in this format
+const MONTH = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
 const execAsync = promisify(execFile);
 const rgxFetchUid = /\(UID (\d+?)/;
 const rgxStatusMessagesCount = /MESSAGES (\d+)/;
@@ -81,8 +84,15 @@ export function imapClientCreate(p: {
 		return cmd(`UID MOVE ${p2.uid} ${p2.targetFolder}`);
 	};
 
+	/**
+	 * 0 means today, which will delete mails with a date from yesterday or older.
+	 */
 	const deleteOlderThanDays = async (days: number) => {
-		const listRes = await cmd(`UID SEARCH BEFORE $(date +'%d-%b-%Y' --date='${days} days ago')`);
+		// TODO refactor to use temporal when switching to nodejs
+		const date = new Date();
+		date.setUTCDate(date.getUTCDate() - days);
+		const dateString = `${date.getUTCDate()}-${MONTH[date.getUTCMonth()]}-${date.getUTCFullYear()}`;
+		const listRes = await cmd(`UID SEARCH BEFORE ${dateString}`);
 
 		if (!listRes.ok) {
 			return listRes;
@@ -95,7 +105,7 @@ export function imapClientCreate(p: {
 				throw `Unexpected response "${text}"`;
 			}
 
-			const uids = text.split(' ').slice(2);
+			const uids = text.trim().split(' ').slice(2);
 
 			if (uids.length > 0) {
 				for (const uid of uids) {
