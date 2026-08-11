@@ -44,14 +44,15 @@ export function emailHeadersToRecord(emailHeadersText: string): Record<string, s
 		if (!res[1] || !res[2]) {
 			continue;
 		}
+		const key = res[1].toLowerCase();
 		// When a key occurs more than once, we put it into an array
-		if (record[res[1]]) {
-			if (typeof record[res[1]] === 'string') {
-				record[res[1]] = [record[res[1]] as string];
+		if (record[key]) {
+			if (typeof record[key] === 'string') {
+				record[key] = [record[key] as string];
 			}
-			(record[res[1]]! as string[]).push(res[2]);
+			(record[key]! as string[]).push(res[2]);
 		}
-		record[res[1]] = res[2];
+		record[key] = res[2];
 	}
 	return record;
 }
