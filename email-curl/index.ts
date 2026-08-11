@@ -6,7 +6,7 @@ import { Result, type ResultError, type ResultOk } from '../utils/result';
 const MONTH = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 const execAsync = promisify(execFile);
-const rgxFetchUid = /\(UID (\d+?)/;
+const rgxFetchUid = /\(UID (\d+?)\s/;
 const rgxStatusMessagesCount = /MESSAGES (\d+)/;
 
 /**

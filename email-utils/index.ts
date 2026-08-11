@@ -1,6 +1,6 @@
-const rgxAuthResults = /Authentication-Results:((?:.|\n)*?)\n(?!\s)/;
-const rgxReturnPath = /Return-Path:.*?<(.*?)>\n(?!\s)/;
-const rgxFrom = /From:.*?<(.*?)>\n(?!\s)/;
+const rgxAuthResults = /Authentication-Results:((?:.|\r\n)*?)\r\n(?!\s)/;
+const rgxReturnPath = /Return-Path:.*?<(.*?)>\r\n(?!\s)/;
+const rgxFrom = /From:.*?<(.*?)>\r\n(?!\s)/;
 /**
  * Checks SPF, DKIM and DMARC headers and if From and Return-Path match.
  * Additionally the From has to match the allowed sender Adresses.
@@ -36,7 +36,7 @@ export function emailSenderIsTrusted(emailHeaders: string, allowedList: RegExp[]
 	return false;
 }
 
-const rgxMailHeader = /(.*?): ((?:.|\s)*?)\n(?!\s)/g;
+const rgxMailHeader = /(.*?): ((?:.|\s)*?)\r\n(?!\s)/g;
 export function emailHeadersToRecord(emailHeadersText: string): Record<string, string | string[]> {
 	const record: Record<string, string | string[]> = {};
 	let res: RegExpExecArray | null;
