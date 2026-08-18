@@ -83,16 +83,16 @@ export function Pages(p: { pagination: Pagination; listResultMeta: ListResultMet
 	return (
 		<div class="join tabular-nums">
 			<a
-				class={['btn join-item', pag.page < 2 && 'btn-disabled'].filter(Boolean).join(' ')}
+				class={['btn join-item btn-sm', pag.page < 2 && 'btn-disabled'].filter(Boolean).join(' ')}
 				href={pag.url + '?' + prevP}
 			>
 				«
 			</a>
-			<a class="btn join-item" href={pag.url + '?' + currP}>
+			<a class="btn join-item btn-sm" href={pag.url + '?' + currP}>
 				{pag.page}
 			</a>
 			<a
-				class={['btn join-item', pag.page > meta.pageTotal - 1 && 'btn-disabled']
+				class={['btn join-item btn-sm', pag.page > meta.pageTotal - 1 && 'btn-disabled']
 					.filter(Boolean)
 					.join(' ')}
 				href={pag.url + '?' + nextP}
@@ -105,7 +105,7 @@ export function Pages(p: { pagination: Pagination; listResultMeta: ListResultMet
 
 export function Position(p: { pagination: Pagination; listResultMeta: ListResultMeta }) {
 	return (
-		<div class="tabular-nums">
+		<div class="text-sm tabular-nums">
 			Showing {p.pagination.offset + 1} -{' '}
 			{Math.min(p.listResultMeta.itemTotal, p.pagination.offset + p.listResultMeta.itemCount)} of{' '}
 			{p.listResultMeta.itemTotal}
