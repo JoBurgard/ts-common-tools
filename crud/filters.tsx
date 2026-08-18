@@ -36,7 +36,15 @@ export function FilterInput(p: { filter: FiltersList[string]; name: string }) {
 	const f = p.filter;
 	switch (f.type) {
 		case 'text': {
-			return <input type="text" placeholder={f.label} data-bind={`filter.${p.name}`} />;
+			return (
+				<input
+					type="text"
+					class="input input-sm"
+					name={p.name}
+					placeholder={f.label}
+					data-bind={`filter.${p.name}`}
+				/>
+			);
 		}
 		case undefined: {
 			break;
@@ -45,4 +53,19 @@ export function FilterInput(p: { filter: FiltersList[string]; name: string }) {
 			f.type satisfies never;
 		}
 	}
+}
+
+const rgxSplit = /(?<!_)_(?!_)/g;
+export function searchParamsToSignals(
+	query: Record<string, string>,
+): Record<string, string | string[]> {
+	const res: Record<string, string | string[]> = {};
+	for (const key in query) {
+		if (rgxSplit.test(query[key]!)) {
+			res[key] = query[key]!.split(rgxSplit).map((it) => it.replaceAll('__', '_'));
+		} else {
+			res[key] = query[key]!.replaceAll('__', '_');
+		}
+	}
+	return res;
 }

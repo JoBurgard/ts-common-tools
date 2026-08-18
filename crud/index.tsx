@@ -9,7 +9,7 @@ import { Type, type } from 'arktype';
 import Elysia from 'elysia';
 import EventEmitter, { on } from 'node:events';
 import type { MaybePromise } from '../types';
-import type { FiltersList } from './filters';
+import { FilterInput, filtersProcess, searchParamsToSignals, type FiltersList } from './filters';
 import FormLayout, { type Layout } from './form-layout';
 import {
 	Pages,
@@ -19,6 +19,8 @@ import {
 	type Pagination,
 } from './pagination';
 import Table, { type Columns } from './table';
+import type { SQL } from 'drizzle-orm';
+import { objectInflate } from '../utils/object';
 
 const ERROR_MESSAGE_GENERIC = 'Something went wrong. Please contact the support.';
 
@@ -40,7 +42,7 @@ type CrudPropsBase<
 	prefix: string;
 	title: string;
 	// ===========================================================================================================
-	listProcess: (p: { pagination: Pagination; query: Record<string, string> }) => {
+	listProcess: (p: { pagination: Pagination; dbSearchFilters: SQL[] }) => {
 		data: ListItem[];
 		meta: ListResultMeta;
 	};
@@ -134,11 +136,14 @@ export function crudCreate<
 	];
 
 	function renderList(props: Props, p: { pagination: Pagination; query: Record<string, string> }) {
-		const res = props.listProcess({ pagination: p.pagination, query: p.query });
+		const listFilters = props.listFilters ?? {};
+		const dbSearchFilters = filtersProcess({ list: listFilters, query: p.query });
+		const res = props.listProcess({ pagination: p.pagination, dbSearchFilters });
 		const searchParamsText = p.pagination.searchParams.toString();
 
-		const filtersTop: [name: string, FiltersList[string]][] = [];
+		const filtersSignals = objectInflate(searchParamsToSignals(p.query))?.filter ?? {};
 
+		const filtersTop: [name: string, FiltersList[string]][] = [];
 		if (props.listFilters) {
 			for (const filterName in props.listFilters) {
 				const filterSettings = props.listFilters[filterName];
@@ -172,16 +177,11 @@ export function crudCreate<
 				</div>
 				<form
 					class="mb-4"
-					data-signals="{filter: {name: 'test_lowdash', foo: {bar: 'baz', baka: 'schalaka'}, list: ['baz', 'next_ulala']}}"
+					data-signals={`{filter: ${JSON.stringify(filtersSignals)}}`}
 					data-on:submit="window.location.href = window.location.protocol + '//' + window.location.host + window.location.pathname + '?' + @search({filter: $filter, page: 1})"
 				>
 					<div class="flex gap-4">
-						<input
-							type="text"
-							class="input input-sm"
-							placeholder="Name..."
-							data-bind="filter.name"
-						/>
+						{filtersTop.map((it) => FilterInput({ filter: it[1], name: it[0] }) as 'safe')}
 						<a
 							class="btn btn-sm btn-secondary"
 							data-attr:href="window.location.pathname + '?' + @search({filter: $filter, page: 1})"
