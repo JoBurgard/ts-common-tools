@@ -9,8 +9,8 @@ import { Type, type } from 'arktype';
 import Elysia from 'elysia';
 import EventEmitter, { on } from 'node:events';
 import type { MaybePromise } from '../types';
+import type { FiltersList } from './filters';
 import FormLayout, { type Layout } from './form-layout';
-import Table, { type Columns } from './table';
 import {
 	Pages,
 	paginationProcess,
@@ -18,6 +18,7 @@ import {
 	type ListResultMeta,
 	type Pagination,
 } from './pagination';
+import Table, { type Columns } from './table';
 
 const ERROR_MESSAGE_GENERIC = 'Something went wrong. Please contact the support.';
 
@@ -38,12 +39,15 @@ type CrudPropsBase<
 > = {
 	prefix: string;
 	title: string;
-	listProcess: (p: { pagination: Pagination }) => {
+	// ===========================================================================================================
+	listProcess: (p: { pagination: Pagination; query: Record<string, string> }) => {
 		data: ListItem[];
 		meta: ListResultMeta;
 	};
 	listColumns: Columns<ListItem>;
 	listPermission?: ReturnType<typeof createSubjectAction>;
+	listFilters?: FiltersList;
+	// ===========================================================================================================
 	createSchema: Type<DataCreate>;
 	createProcess: (props: {
 		data: DataCreate;
@@ -51,12 +55,14 @@ type CrudPropsBase<
 		request: Request;
 	}) => MaybePromise<void | { id: string }>;
 	createPermission?: ReturnType<typeof createSubjectAction>;
+	// ===========================================================================================================
 	readProcess: (props: {
 		id: string;
 		user: CrudUser;
 		request: Request;
 	}) => MaybePromise<Record<string, unknown> | undefined>;
 	readPermission?: ReturnType<typeof createSubjectAction>;
+	// ===========================================================================================================
 	updateSchema: Type<DataUpdate>;
 	updateProcess: (props: {
 		data: DataUpdate;
@@ -65,6 +71,7 @@ type CrudPropsBase<
 		request: Request;
 	}) => MaybePromise<void>;
 	updatePermission?: ReturnType<typeof createSubjectAction>;
+	// ===========================================================================================================
 	deleteProcess: (props: { user: CrudUser; id: string; request: Request }) => MaybePromise<void>;
 	deletePermission?: ReturnType<typeof createSubjectAction>;
 };
@@ -126,9 +133,21 @@ export function crudCreate<
 		},
 	];
 
-	function renderList(props: Props, pagination: Pagination) {
-		const res = props.listProcess({ pagination });
-		const searchParamsText = pagination.searchParams.toString();
+	function renderList(props: Props, p: { pagination: Pagination; query: Record<string, string> }) {
+		const res = props.listProcess({ pagination: p.pagination, query: p.query });
+		const searchParamsText = p.pagination.searchParams.toString();
+
+		const filtersTop: [name: string, FiltersList[string]][] = [];
+
+		if (props.listFilters) {
+			for (const filterName in props.listFilters) {
+				const filterSettings = props.listFilters[filterName];
+
+				if (filterSettings?.position === 'top') {
+					filtersTop.push([filterName, filterSettings]);
+				}
+			}
+		}
 
 		// If no createView is passed, then we assume, that an item will be created with default
 		// values.
@@ -138,23 +157,44 @@ export function crudCreate<
 					{!props.createFormLayout && !props.createView ? (
 						<button
 							type="button"
-							class="btn btn-primary"
+							class="btn btn-sm btn-primary"
 							data-on:click={`@post('/${props.prefix}/create')`}
 						>
 							<span class="i-[mdi--plus]"></span>
 							Create
 						</button>
 					) : (
-						<a href={`/${props.prefix}/create`} class="btn btn-primary">
+						<a href={`/${props.prefix}/create`} class="btn btn-sm btn-primary">
 							<span class="i-[mdi--plus]"></span>
 							Create
 						</a>
 					)}
 				</div>
+				<form
+					class="mb-4"
+					data-signals="{filter: {name: 'test_lowdash', foo: {bar: 'baz', baka: 'schalaka'}, list: ['baz', 'next_ulala']}}"
+					data-on:submit="window.location.href = window.location.protocol + '//' + window.location.host + window.location.pathname + '?' + @search({filter: $filter, page: 1})"
+				>
+					<div class="flex gap-4">
+						<input
+							type="text"
+							class="input input-sm"
+							placeholder="Name..."
+							data-bind="filter.name"
+						/>
+						<a
+							class="btn btn-sm btn-secondary"
+							data-attr:href="window.location.pathname + '?' + @search({filter: $filter, page: 1})"
+						>
+							<span class="i-[mdi--search]"></span>
+							Search
+						</a>
+					</div>
+				</form>
 				<Table data={res.data} columns={listColumns}></Table>
 				<div class="mt-4 flex items-center gap-6">
-					<Pages pagination={pagination} listResultMeta={res.meta}></Pages>
-					<Position pagination={pagination} listResultMeta={res.meta}></Position>
+					<Pages pagination={p.pagination} listResultMeta={res.meta}></Pages>
+					<Position pagination={p.pagination} listResultMeta={res.meta}></Position>
 				</div>
 				<div
 					data-init={`@get('/${props.prefix}/list/sse${searchParamsText ? '?' + searchParamsText : ''}')`}
@@ -185,7 +225,7 @@ export function crudCreate<
 
 				return (
 					<App user={user} path={path}>
-						{renderList(props, pagination)}
+						{renderList(props, { pagination, query })}
 					</App>
 				);
 			},
@@ -220,7 +260,7 @@ export function crudCreate<
 				try {
 					for await (const _ of on(events, 'update', { signal: controller.signal })) {
 						yield dstar.patchElements(
-							(<div id="morph">{renderList(props, pagination)}</div>) as string,
+							(<div id="morph">{renderList(props, { pagination, query })}</div>) as string,
 						);
 					}
 				} catch (err: any) {
