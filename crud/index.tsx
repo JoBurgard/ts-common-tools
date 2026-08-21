@@ -1,14 +1,16 @@
 import { dstar } from '$d*';
 import { sendToast } from '$ext/ts-common-tools/datastar/toaster';
-import { throttle, ts } from '$ext/ts-common-tools/utils';
+import { interval, ts } from '$ext/ts-common-tools/utils';
 import { routeCheckPermission, type createSubjectAction } from '$lib/permissions';
+import { TICK_MS } from '$src/index';
 import App from '$src/layouts/App';
 import { pluginAuth } from '$src/modules/auth';
 import { type PropsWithChildren } from '@kitajs/html';
 import { Type, type } from 'arktype';
+import type { SQL } from 'drizzle-orm';
 import Elysia from 'elysia';
-import EventEmitter, { on } from 'node:events';
 import type { MaybePromise } from '../types';
+import { objectInflate } from '../utils/object';
 import { FilterInput, filtersProcess, searchParamsToSignals, type FiltersList } from './filters';
 import FormLayout, { type Layout } from './form-layout';
 import {
@@ -19,8 +21,6 @@ import {
 	type Pagination,
 } from './pagination';
 import Table, { type Columns } from './table';
-import type { SQL } from 'drizzle-orm';
-import { objectInflate } from '../utils/object';
 
 const ERROR_MESSAGE_GENERIC = 'Something went wrong. Please contact the support.';
 
@@ -33,6 +33,10 @@ export type ComponentView = (props: {
 	issues?: Record<string, string[]>;
 	id?: string;
 }) => string;
+
+type ListLayout = {
+	actionsTop?: () => JSX.Element;
+};
 
 type CrudPropsBase<
 	DataCreate extends Record<string, unknown>,
@@ -47,6 +51,7 @@ type CrudPropsBase<
 		meta: ListResultMeta;
 	};
 	listColumns: Columns<ListItem>;
+	listLayout?: ListLayout;
 	listPermission?: ReturnType<typeof createSubjectAction>;
 	listFilters?: FiltersList;
 	// ===========================================================================================================
@@ -105,8 +110,8 @@ export function crudCreate<
 >(props: CrudProps<DataCreate, DataUpdate, ListItem>) {
 	type Props = typeof props;
 
-	const events = new EventEmitter();
-	const triggerUpdate = throttle(() => events.emit('update'), 100);
+	let lastUpdate = Date.now();
+	const triggerUpdate = () => (lastUpdate = Date.now());
 
 	const listColumns: Props['listColumns'] = [
 		...props.listColumns,
@@ -135,7 +140,8 @@ export function crudCreate<
 		},
 	];
 
-	function renderList(props: Props, p: { pagination: Pagination; query: Record<string, string> }) {
+	function listView(props: Props, p: { pagination: Pagination; query: Record<string, string> }) {
+		const layout = props.listLayout;
 		const listFilters = props.listFilters ?? {};
 		const dbSearchFilters = filtersProcess({ list: listFilters, query: p.query });
 		const res = props.listProcess({ pagination: p.pagination, dbSearchFilters });
@@ -157,53 +163,60 @@ export function crudCreate<
 		// If no createView is passed, then we assume, that an item will be created with default
 		// values.
 		return (
-			<div>
-				<div class="mb-4">
-					{!props.createFormLayout && !props.createView ? (
-						<button
-							type="button"
-							class="btn btn-sm btn-primary"
-							data-on:click={`@post('/${props.prefix}/create')`}
-						>
-							<span class="i-[mdi--plus]"></span>
-							Create
-						</button>
-					) : (
-						<a href={`/${props.prefix}/create`} class="btn btn-sm btn-primary">
-							<span class="i-[mdi--plus]"></span>
-							Create
-						</a>
-					)}
-				</div>
-				<form
-					class="mb-4"
-					data-signals={`{filter: ${JSON.stringify(filtersSignals)}}`}
-					data-on:submit="window.location.href = window.location.protocol + '//' + window.location.host + window.location.pathname + '?' + @search({filter: $filter, page: 1})"
-				>
-					<div class="flex gap-4">
-						{filtersTop.map((it) => FilterInput({ filter: it[1], name: it[0] }) as 'safe')}
-						<a
-							class="btn btn-sm btn-secondary"
-							data-attr:href="window.location.pathname + '?' + @search({filter: $filter, page: 1})"
-						>
-							<span class="i-[mdi--search]"></span>
-							Search
-						</a>
-					</div>
-				</form>
-				<Table data={res.data} columns={listColumns}></Table>
-				<div class="mt-4 flex items-center gap-6">
-					<Pages pagination={p.pagination} listResultMeta={res.meta}></Pages>
-					<Position pagination={p.pagination} listResultMeta={res.meta}></Position>
-				</div>
+			<>
 				<div
-					data-init={`@get('/${props.prefix}/list/sse${searchParamsText ? '?' + searchParamsText : ''}')`}
+					id="sse"
+					data-init={`@get('/${props.prefix}/list/sse${searchParamsText ? '?' + searchParamsText : ''}', {filterSignals: {exclude: /.*/}})`}
+					data-ignore-morph
 				></div>
-			</div>
+				<div>
+					<div class="mb-4 flex items-center gap-4">
+						<div>
+							{!props.createFormLayout && !props.createView ? (
+								<button
+									type="button"
+									class="btn btn-sm btn-primary"
+									data-on:click={`@post('/${props.prefix}/create')`}
+								>
+									<span class="i-[mdi--plus]"></span>
+									Create
+								</button>
+							) : (
+								<a href={`/${props.prefix}/create`} class="btn btn-sm btn-primary">
+									<span class="i-[mdi--plus]"></span>
+									Create
+								</a>
+							)}
+						</div>
+						{!!layout?.actionsTop && <div>{layout.actionsTop() as 'safe'}</div>}
+					</div>
+					<form
+						class="mb-4"
+						data-signals={`{filter: ${JSON.stringify(filtersSignals)}}`}
+						data-on:submit="window.location.href = window.location.protocol + '//' + window.location.host + window.location.pathname + '?' + @search({filter: $filter, page: 1})"
+					>
+						<div class="flex gap-4">
+							{filtersTop.map((it) => FilterInput({ filter: it[1], name: it[0] }) as 'safe')}
+							<a
+								class="btn btn-sm btn-secondary"
+								data-attr:href="window.location.pathname + '?' + @search({filter: $filter, page: 1})"
+							>
+								<span class="i-[mdi--search]"></span>
+								Search
+							</a>
+						</div>
+					</form>
+					<Table data={res.data} columns={listColumns}></Table>
+					<div class="mt-4 flex items-center gap-6">
+						<Pages pagination={p.pagination} listResultMeta={res.meta}></Pages>
+						<Position pagination={p.pagination} listResultMeta={res.meta}></Position>
+					</div>
+				</div>
+			</>
 		);
 	}
 
-	return new Elysia({ prefix: props.prefix })
+	const plugin = new Elysia({ prefix: props.prefix })
 		.use(pluginAuth)
 		.macro({
 			id: {
@@ -225,7 +238,7 @@ export function crudCreate<
 
 				return (
 					<App user={user} path={path}>
-						{renderList(props, { pagination, query })}
+						{listView(props, { pagination, query })}
 					</App>
 				);
 			},
@@ -238,7 +251,7 @@ export function crudCreate<
 		)
 		.get(
 			'/list/sse',
-			async function* ({ path, request, status, query }) {
+			async function* ({ path, request, status, query, set }) {
 				const paginationRes = paginationProcess({
 					query,
 					path: path.split('/').slice(0, -1).join('/'),
@@ -250,22 +263,36 @@ export function crudCreate<
 
 				const pagination = paginationRes.value;
 
-				const controller = new AbortController();
+				set.headers.connection = 'keep-alive';
+				set.headers['cache-control'] = 'no-cache';
 
-				request.signal.addEventListener('abort', () => {
-					controller.abort();
-				});
+				yield 'event: heartbeat\n\n';
+				console.log(new Date(), '<-- sse connection');
+
+				let lastRender = lastUpdate;
+				let lastHeartbeat = Date.now();
 
 				// rerenders the page when an update event is emitted
 				try {
-					for await (const _ of on(events, 'update', { signal: controller.signal })) {
-						yield dstar.patchElements(
-							(<div id="morph">{renderList(props, { pagination, query })}</div>) as string,
-						);
+					// PERF global tick event + shared html render
+					for await (const _ of interval(TICK_MS, { signal: request.signal })) {
+						if (lastRender !== lastUpdate) {
+							yield dstar.patchElements(
+								(<div id="morph">{listView(props, { pagination, query })}</div>) as string,
+							);
+							lastRender = lastUpdate;
+							lastHeartbeat = Date.now();
+						} else if (Date.now() - lastHeartbeat >= 20_000) {
+							yield 'event: heartbeat\n\n';
+							lastHeartbeat = Date.now();
+						}
 					}
 				} catch (err: any) {
 					if (err.code !== 'ABORT_ERR') {
+						console.error(err);
 						throw err;
+					} else {
+						console.log(new Date(), 'SSE Aborted');
 					}
 				}
 			},
@@ -529,6 +556,8 @@ export function crudCreate<
 					: undefined,
 			},
 		);
+
+	return { plugin, triggerUpdate };
 }
 
 type FormEditProps = { prefix: string; errorMessage?: string } & (
