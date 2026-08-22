@@ -35,7 +35,7 @@ export type ComponentView = (props: {
 }) => string;
 
 type ListLayout = {
-	actionsTop?: () => JSX.Element;
+	actionsTop?: (p: { user: { roles: string[] } }) => Promise<JSX.Element>;
 };
 
 type CrudPropsBase<
@@ -140,7 +140,10 @@ export function crudCreate<
 		},
 	];
 
-	function listView(props: Props, p: { pagination: Pagination; query: Record<string, string> }) {
+	async function listView(
+		props: Props,
+		p: { pagination: Pagination; query: Record<string, string>; user: { roles: string[] } },
+	) {
 		const layout = props.listLayout;
 		const listFilters = props.listFilters ?? {};
 		const dbSearchFilters = filtersProcess({ list: listFilters, query: p.query });
@@ -188,7 +191,9 @@ export function crudCreate<
 								</a>
 							)}
 						</div>
-						{!!layout?.actionsTop && <div>{layout.actionsTop() as 'safe'}</div>}
+						{!!layout?.actionsTop && (
+							<div>{(await layout.actionsTop({ user: p.user })) as 'safe'}</div>
+						)}
 					</div>
 					<form
 						class="mb-4"
@@ -227,7 +232,7 @@ export function crudCreate<
 		})
 		.get(
 			'/list',
-			({ user, path, query, status }) => {
+			async ({ user, path, query, status }) => {
 				const paginationRes = paginationProcess({ query, path });
 
 				if (!paginationRes.ok) {
@@ -238,7 +243,7 @@ export function crudCreate<
 
 				return (
 					<App user={user} path={path}>
-						{listView(props, { pagination, query })}
+						{(await listView(props, { pagination, query, user })) as 'safe'}
 					</App>
 				);
 			},
@@ -251,7 +256,7 @@ export function crudCreate<
 		)
 		.get(
 			'/list/sse',
-			async function* ({ path, request, status, query, set }) {
+			async function* ({ user, path, request, status, query, set }) {
 				const paginationRes = paginationProcess({
 					query,
 					path: path.split('/').slice(0, -1).join('/'),
@@ -278,7 +283,11 @@ export function crudCreate<
 					for await (const _ of interval(TICK_MS, { signal: request.signal })) {
 						if (lastRender !== lastUpdate) {
 							yield dstar.patchElements(
-								(<div id="morph">{listView(props, { pagination, query })}</div>) as string,
+								(
+									<div id="morph">
+										{(await listView(props, { pagination, query, user })) as 'safe'}
+									</div>
+								) as string,
 							);
 							lastRender = lastUpdate;
 							lastHeartbeat = Date.now();
