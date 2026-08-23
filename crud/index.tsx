@@ -172,32 +172,59 @@ export function crudCreate<
 					data-init={`@get('/${props.prefix}/list/sse${searchParamsText ? '?' + searchParamsText : ''}', {filterSignals: {exclude: /.*/}})`}
 					data-ignore-morph
 				></div>
-				<div>
-					<div class="mb-4 flex items-center gap-4">
-						<div>
-							{!props.createFormLayout && !props.createView ? (
-								<button
-									type="button"
-									class="btn btn-sm btn-primary"
-									data-on:click={`@post('/${props.prefix}/create')`}
-								>
-									<span class="i-[mdi--plus]"></span>
-									Create
-								</button>
-							) : (
-								<a href={`/${props.prefix}/create`} class="btn btn-sm btn-primary">
-									<span class="i-[mdi--plus]"></span>
-									Create
-								</a>
+				<div data-signals={`{filter: ${JSON.stringify(filtersSignals)}}`}>
+					<div class="flex items-center justify-between gap-6">
+						<div class="flex items-center gap-4">
+							<div>
+								{!props.createFormLayout && !props.createView ? (
+									<button
+										type="button"
+										class="btn btn-sm btn-primary"
+										data-on:click={`@post('/${props.prefix}/create')`}
+									>
+										<span class="i-[mdi--plus]"></span>
+										Create
+									</button>
+								) : (
+									<a href={`/${props.prefix}/create`} class="btn btn-sm btn-primary">
+										<span class="i-[mdi--plus]"></span>
+										Create
+									</a>
+								)}
+							</div>
+							{!!layout?.actionsTop && (
+								<div>{(await layout.actionsTop({ user: p.user })) as 'safe'}</div>
 							)}
 						</div>
-						{!!layout?.actionsTop && (
-							<div>{(await layout.actionsTop({ user: p.user })) as 'safe'}</div>
-						)}
+						<div>
+							<div role="tablist" class="tabs-border tabs">
+								<a
+									role="tab"
+									class={[
+										'tab flex gap-2',
+										p.pagination.searchParams.get('recyclebin') !== 'true' && 'tab-active',
+									]}
+									data-attr:href="window.location.pathname + '?' + @search({recyclebin: '', page: 1})"
+								>
+									<span class="i-[mdi--format-list-bulleted]"></span>
+									List
+								</a>
+								<a
+									role="tab"
+									class={[
+										'tab flex gap-2',
+										p.pagination.searchParams.get('recyclebin') === 'true' && 'tab-active',
+									]}
+									data-attr:href="window.location.pathname + '?' + @search({recyclebin: true, page: 1})"
+								>
+									<span class="i-[mdi--bin]"></span>
+									Recycle Bin
+								</a>
+							</div>
+						</div>
 					</div>
 					<form
-						class="mb-4"
-						data-signals={`{filter: ${JSON.stringify(filtersSignals)}}`}
+						class="mt-4"
 						data-on:submit="window.location.href = window.location.protocol + '//' + window.location.host + window.location.pathname + '?' + @search({filter: $filter, page: 1})"
 					>
 						<div class="flex gap-4">
@@ -211,7 +238,9 @@ export function crudCreate<
 							</a>
 						</div>
 					</form>
-					<Table data={res.data} columns={listColumns}></Table>
+					<div class="mt-4">
+						<Table data={res.data} columns={listColumns}></Table>
+					</div>
 					<div class="mt-4 flex items-center gap-6">
 						<Pages pagination={p.pagination} listResultMeta={res.meta}></Pages>
 						<Position pagination={p.pagination} listResultMeta={res.meta}></Position>
