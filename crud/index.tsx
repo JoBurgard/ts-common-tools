@@ -45,7 +45,6 @@ type CrudPropsBase<
 > = {
 	prefix: string;
 	title: string;
-	hasRecyclebin?: boolean;
 	// ===========================================================================================================
 	listProcess: (p: { pagination: Pagination; dbSearchFilters: SQL[]; showDeleted: boolean }) => {
 		data: ListItem[];
@@ -82,7 +81,17 @@ type CrudPropsBase<
 	// ===========================================================================================================
 	deleteProcess: (props: { user: CrudUser; id: string; request: Request }) => MaybePromise<void>;
 	deletePermission?: ReturnType<typeof createSubjectAction>;
-};
+} & (
+	| {
+			hasRecyclebin: true;
+			restoreProcess: (props: {
+				user: CrudUser;
+				id: string;
+				request: Request;
+			}) => MaybePromise<void>;
+	  }
+	| { hasRecyclebin: false | undefined; restoreProcess: undefined }
+);
 
 type CrudProps<
 	DataCreate extends Record<string, unknown>,
@@ -139,10 +148,10 @@ export function crudCreate<
 							<button
 								class="btn btn-xs btn-success"
 								type="button"
-								data-on:click={`confirm('Do you really want to delete?') && @delete('/${props.prefix}/${componentProps.row?.id}')`}
+								data-on:click={`@post('/${props.prefix}/restore/${componentProps.row?.id}')`}
 							>
 								<span class="i-[mdi--undo]"></span>
-								Recover
+								Restore
 							</button>
 						)}
 					</div>
@@ -594,6 +603,35 @@ export function crudCreate<
 						result = await result;
 					}
 					yield sendToast({ type: 'success', message: 'Deleted' });
+				} catch (error) {
+					console.trace(error);
+					yield sendToast({ type: 'error', message: 'Something went wrong' });
+					return status(500);
+				}
+
+				triggerUpdate();
+			},
+			{
+				auth: true,
+				id: true,
+				beforeHandle: props.deletePermission
+					? routeCheckPermission(props.deletePermission[0], props.deletePermission[1])
+					: undefined,
+			},
+		)
+		.post(
+			'/restore/:id',
+			async function* ({ user, status, params: { id }, request }) {
+				if (!props.hasRecyclebin) {
+					return status(404);
+				}
+
+				try {
+					let result = props.restoreProcess({ user, id, request });
+					if (result instanceof Promise) {
+						result = await result;
+					}
+					yield sendToast({ type: 'success', message: 'Restored' });
 				} catch (error) {
 					console.trace(error);
 					yield sendToast({ type: 'error', message: 'Something went wrong' });
