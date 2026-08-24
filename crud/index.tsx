@@ -45,8 +45,9 @@ type CrudPropsBase<
 > = {
 	prefix: string;
 	title: string;
+	hasRecyclebin?: boolean;
 	// ===========================================================================================================
-	listProcess: (p: { pagination: Pagination; dbSearchFilters: SQL[] }) => {
+	listProcess: (p: { pagination: Pagination; dbSearchFilters: SQL[]; showDeleted: boolean }) => {
 		data: ListItem[];
 		meta: ListResultMeta;
 	};
@@ -113,7 +114,7 @@ export function crudCreate<
 	let lastUpdate = Date.now();
 	const triggerUpdate = () => (lastUpdate = Date.now());
 
-	const listColumns: Props['listColumns'] = [
+	const listColumns = (p: { isRecyclebin: boolean }): Props['listColumns'] => [
 		...props.listColumns,
 		{
 			title: '',
@@ -127,13 +128,23 @@ export function crudCreate<
 							Edit
 						</a>
 						<button
-							class="btn btn-xs btn-secondary"
+							class={['btn btn-xs', p.isRecyclebin ? 'btn-error' : 'btn-secondary']}
 							type="button"
 							data-on:click={`confirm('Do you really want to delete?') && @delete('/${props.prefix}/${componentProps.row?.id}')`}
 						>
 							<span class="i-[mdi--delete]"></span>
 							Delete
 						</button>
+						{props.hasRecyclebin && p.isRecyclebin && (
+							<button
+								class="btn btn-xs btn-success"
+								type="button"
+								data-on:click={`confirm('Do you really want to delete?') && @delete('/${props.prefix}/${componentProps.row?.id}')`}
+							>
+								<span class="i-[mdi--undo]"></span>
+								Recover
+							</button>
+						)}
 					</div>
 				);
 			},
@@ -147,7 +158,6 @@ export function crudCreate<
 		const layout = props.listLayout;
 		const listFilters = props.listFilters ?? {};
 		const dbSearchFilters = filtersProcess({ list: listFilters, query: p.query });
-		const res = props.listProcess({ pagination: p.pagination, dbSearchFilters });
 		const searchParamsText = p.pagination.searchParams.toString();
 
 		const filtersSignals = objectInflate(searchParamsToSignals(p.query))?.filter ?? {};
@@ -162,6 +172,14 @@ export function crudCreate<
 				}
 			}
 		}
+
+		const isRecyclebin = p.pagination.searchParams.get('recyclebin') === 'true';
+
+		const res = props.listProcess({
+			pagination: p.pagination,
+			dbSearchFilters,
+			showDeleted: isRecyclebin,
+		});
 
 		// If no createView is passed, then we assume, that an item will be created with default
 		// values.
@@ -196,50 +214,48 @@ export function crudCreate<
 								<div>{(await layout.actionsTop({ user: p.user })) as 'safe'}</div>
 							)}
 						</div>
-						<div>
-							<div role="tablist" class="tabs-border tabs">
+						{props.hasRecyclebin && (
+							<div>
+								<div role="tablist" class="tabs-border tabs">
+									<a
+										role="tab"
+										class={['tab flex gap-2', !isRecyclebin && 'tab-active']}
+										data-attr:href="window.location.pathname + '?' + @search({recyclebin: '', page: 1})"
+									>
+										<span class="i-[mdi--format-list-bulleted]"></span>
+										List
+									</a>
+									<a
+										role="tab"
+										class={['tab flex gap-2', isRecyclebin && 'tab-active']}
+										data-attr:href="window.location.pathname + '?' + @search({recyclebin: true, page: 1})"
+									>
+										<span class="i-[mdi--bin]"></span>
+										Recycle Bin
+									</a>
+								</div>
+							</div>
+						)}
+					</div>
+					{filtersTop.length > 0 && (
+						<form
+							class="mt-4"
+							data-on:submit="window.location.href = window.location.protocol + '//' + window.location.host + window.location.pathname + '?' + @search({filter: $filter, page: 1})"
+						>
+							<div class="flex gap-4">
+								{filtersTop.map((it) => FilterInput({ filter: it[1], name: it[0] }) as 'safe')}
 								<a
-									role="tab"
-									class={[
-										'tab flex gap-2',
-										p.pagination.searchParams.get('recyclebin') !== 'true' && 'tab-active',
-									]}
-									data-attr:href="window.location.pathname + '?' + @search({recyclebin: '', page: 1})"
+									class="btn btn-sm btn-secondary"
+									data-attr:href="window.location.pathname + '?' + @search({filter: $filter, page: 1})"
 								>
-									<span class="i-[mdi--format-list-bulleted]"></span>
-									List
-								</a>
-								<a
-									role="tab"
-									class={[
-										'tab flex gap-2',
-										p.pagination.searchParams.get('recyclebin') === 'true' && 'tab-active',
-									]}
-									data-attr:href="window.location.pathname + '?' + @search({recyclebin: true, page: 1})"
-								>
-									<span class="i-[mdi--bin]"></span>
-									Recycle Bin
+									<span class="i-[mdi--search]"></span>
+									Search
 								</a>
 							</div>
-						</div>
-					</div>
-					<form
-						class="mt-4"
-						data-on:submit="window.location.href = window.location.protocol + '//' + window.location.host + window.location.pathname + '?' + @search({filter: $filter, page: 1})"
-					>
-						<div class="flex gap-4">
-							{filtersTop.map((it) => FilterInput({ filter: it[1], name: it[0] }) as 'safe')}
-							<a
-								class="btn btn-sm btn-secondary"
-								data-attr:href="window.location.pathname + '?' + @search({filter: $filter, page: 1})"
-							>
-								<span class="i-[mdi--search]"></span>
-								Search
-							</a>
-						</div>
-					</form>
+						</form>
+					)}
 					<div class="mt-4">
-						<Table data={res.data} columns={listColumns}></Table>
+						<Table data={res.data} columns={listColumns({ isRecyclebin })}></Table>
 					</div>
 					<div class="mt-4 flex items-center gap-6">
 						<Pages pagination={p.pagination} listResultMeta={res.meta}></Pages>
