@@ -90,7 +90,7 @@ type CrudPropsBase<
 				request: Request;
 			}) => MaybePromise<void>;
 	  }
-	| { hasRecyclebin: false | undefined; restoreProcess: undefined }
+	| { hasRecyclebin?: false; restoreProcess?: undefined }
 );
 
 type CrudProps<
